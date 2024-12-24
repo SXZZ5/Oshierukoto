@@ -40,9 +40,9 @@ function start_recording(stream) {
     console.log(recorder);
     // schedule(recorder);
     recorder.addEventListener("stop", (e) => {
-        recorder.start(5000);
+        recorder.start(3000);
     })
-    recorder.start(5000);
+    recorder.start(3000);
     // setTimeout(() => {
     //     recorder.stop();
     // }, 35000);

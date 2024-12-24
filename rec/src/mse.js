@@ -33,27 +33,35 @@
 const str = 'video/mp4; codecs="avc1.42E01E"'
 var media_source = new MediaSource();
 const msehandle = media_source.handle;
-self.postMessage({ handle: msehandle }, [msehandle]);
+self.postMessage({ signal: "handle", handle: msehandle }, [msehandle]);
 
+let counter = 0;
 let srcbuf = null;
 media_source.addEventListener("sourceopen", (e) => {
     console.log("sourceopened on media source");
     srcbuf = media_source.addSourceBuffer(str);
+    srcbuf.mode = "sequence";
     console.log("srcbuf: ", srcbuf);
 });
 
 const ws = new WebSocket("ws://localhost:8080/receive");
 ws.onopen = (e) => {
+    setInterval(() => {
+        if(srcbuf.updating) return;
+        else ws.send("ready");
+    }, 1000);
     console.log("websocket opened");
 }
 ws.onmessage = (e) => {
+    if (srcbuf === null) return;
     console.log("received data from server");
-    if(srcbuf === null) return;
-    console.log("received data from server");
+    ++counter;
     e.data.arrayBuffer().
-    then((buff) => {
-        if (!srcbuf.updating) {
-            srcbuf.appendBuffer(buff);
-        }
-    })
+        then((buff) => {
+            if (!srcbuf.updating) {
+                console.log("appending buffer: ", counter);
+                self.postMessage({ signal: "download", buff: buff });
+                srcbuf.appendBuffer(buff);
+           }
+        })
 }
