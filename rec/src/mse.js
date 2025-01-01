@@ -1,36 +1,17 @@
-// const str = 'video/mp4; codecs="avc1.42E01E"'
-// function startmedia() {
-//     var media_source = new MediaSource();
-//     const msehandle = media_source.handle;
-//     self.postMessage({ handle: msehandle }, [msehandle]);
-//     // setInterval(() => {
-//     //     console.log("media source state: ", media_source.readyState);
-//     // }, 500)
-//     media_source.addEventListener("sourceopen", (e) => {
-//         console.log("sourceopened on media source");
-//         helper();
-//     });
-
-//     return media_source;
-// }
-
-// // var srcbuf = media_source.addSourceBuffer(str);
-// const ws = new WebSocket("ws://localhost:8080/receive");
-// ws.onmessage = (e) => {
-//     e.data.arrayBuffer()
-//         .then((buff) => {
-//             console.log("received from server: ", typeof (buff))
-//             console.log("buff", buff);
-//             const mse = startmedia();
-//             let srcbuf = mse.addSourceBuffer(str);
-//             srcbuf.appendBuffer(buff);
-//         })
-// }
-
 
 //----------------------------------------------------------------
 
-const str = 'video/mp4; codecs="avc1.42E01E"'
+//VideoAndAudioVersions
+const str = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
+// const str = 'video/mp4; codecs="avc1.58A01E, mp4a.40.2"'
+
+
+//VideoOnlyVersions
+// const str = 'video/mp4; codecs="avc1.58A01E"'
+// const str = 'video/mp4; codecs="avc1.58A00A"'
+// const str = 'video/mp4; codecs="avc1.42C00A"' //level 1 + constrained baseline profile
+// const str = 'video/mp4; codecs="avc1.42E01E"'
+
 var media_source = new MediaSource();
 const msehandle = media_source.handle;
 self.postMessage({ signal: "handle", handle: msehandle }, [msehandle]);
@@ -61,7 +42,11 @@ ws.onmessage = (e) => {
             if (!srcbuf.updating) {
                 console.log("appending buffer: ", counter);
                 self.postMessage({ signal: "download", buff: buff });
-                srcbuf.appendBuffer(buff);
+                try {
+                    srcbuf.appendBuffer(buff);
+                } catch(e) {
+                    console.log("error appending buffer: ", e);
+                }
            }
         })
 }

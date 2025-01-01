@@ -145,15 +145,46 @@ func main() {
 				continue
 			}
 
+			combo := make([]byte, len(superimportant))
+			copy(combo, superimportant)
+			combo = append(combo, message...)
+
 			fmt.Println(messageType)
 			m.Lock()
-			if len(queue) >= 3 {
+			if len(queue) >= 4 {
 				queue = queue[1:]
 			}
-			queue = append(queue, message)
+			queue = append(queue, combo)
 			m.Unlock()
 
-			str := "data" + strconv.Itoa(counter) + ".mp4"
+			str := "./assets/data" + strconv.Itoa(counter) + ".mp4"
+			file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
+			if err != nil {
+				fmt.Println("err opening file: ", err)
+			}
+			file.Write(combo)
+			file.Close()
+		}
+	})
+
+	app.GET("/canvas", func(c *gin.Context) {
+		ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer ws.Close()
+		counter := 0
+		for {
+			messageType, message, err := ws.ReadMessage()
+			if err != nil {
+				fmt.Println(err)
+			}
+			if(len(message) <= 0) {
+				continue;
+			}
+			counter++;
+			fmt.Println("canvas message:", messageType)
+			str := "./assets/canvas" + strconv.Itoa(counter) + ".mp4"
 			file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
 			if err != nil {
 				fmt.Println("err opening file: ", err)
@@ -176,7 +207,6 @@ func main() {
 			}
 			ws.Close()
 		}()
-		sentinit := false
 		counter := 0
 		for {
 			if len(queue) == 0 {
@@ -188,18 +218,12 @@ func main() {
 				fmt.Println(err)
 			}
 			if messageType == websocket.TextMessage && string(message) == "ready" {
-				if !sentinit {
-					ws.WriteMessage(websocket.BinaryMessage, superimportant)
-					sentinit = true
-				}
-				str := "sentdata" + strconv.Itoa(counter) + ".mp4"
+				str := "./assets/sentdata" + strconv.Itoa(counter) + ".mp4"
 				file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
 				if err != nil {
 					fmt.Println("err opening file: ", err)
 				}
-				combo := make([]byte, len(superimportant))
-				copy(combo, superimportant)
-				combo = append(combo, queue[0]...)
+				combo := queue[0]
 				ws.WriteMessage(websocket.BinaryMessage, combo)
 				file.Write(combo)
 				file.Close()

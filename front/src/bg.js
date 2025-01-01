@@ -1,4 +1,5 @@
 let conn = null;
+let canvas_conn = null;
 let counter = 0;
 onmessage = (e) => {
     console.log("bg: got message");
@@ -9,6 +10,9 @@ onmessage = (e) => {
     } else if(e.data.signal == "data") {
         let blob = e.data.data;
         sendData(blob);
+    } else if(e.data.signal == "canvas_data") {
+        let blob = e.data.data;
+        sendCanvasData(blob);
     }
 }
 
@@ -17,6 +21,11 @@ function startConnection() {
     conn = ws;
     ws.onopen = () => {
         console.log("bg: connected to ws")
+    }
+    let ws2 = new WebSocket("ws://localhost:8080/canvas");
+    canvas_conn = ws2;
+    ws2.onopen = () => {
+        console.log("bg: connected to canvas ws")
     }
 }
 
@@ -32,3 +41,12 @@ function sendData(blob) {
     conn.send(blob);
 }
 
+function sendCanvasData(blob) {
+    if(canvas_conn === null) {
+        return;
+    }
+    if(canvas_conn.readyState !== WebSocket.OPEN) {
+        return;
+    }
+    canvas_conn.send(blob);
+}

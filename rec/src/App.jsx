@@ -2,7 +2,9 @@
 export default function App() {
     return <div>
         <div>Video Element below this.</div>
-        <video id="vid" autoPlay controls></video>
+        <div style={{width: "400", height: "280"}}>
+            <video id="vid" autoPlay controls></video>
+        </div>
     </div>
 }
 
