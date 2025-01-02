@@ -1,54 +1,72 @@
 self.onmessage = (e) => {
     if (e.data.signal === "init") {
-        data = e.data.data;
+        let mydata = e.data.data;
         console.log("draw: received data and init signal");
-        init(data);
+        init(mydata);
     }
 }
 
 function init(cnv) {
     const ctx = cnv.getContext("2d");
     console.log(ctx);
-    ctx.imageSmoothingEnabled = true;
-    ctx.strokeStyle = "red";
-    ctx.lineWidth = 5;
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 4;
     ctx.fillStyle = "white";
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
     ctx.fillRect(0, 0, cnv.width, cnv.height);
-    
+
+    console.log(cnv.height + " " + cnv.width);
     self.onmessage = (msg) => {
-        if(msg.data.signal === "ptrdown") {
+        if (msg.data.signal === "ptrdown") {
             ptrdown(msg.data.data);
-        } else if(msg.data.signal === "ptrmove") {
+        } else if (msg.data.signal === "ptrmove") {
             ptrmove(msg.data.data);
-        } else if(msg.data.signal === "ptrup") {
+        } else if (msg.data.signal === "ptrup") {
             ptrup(msg.data.data);
-        } else if(msg.data.signal === "ptrlv") {
+        } else if (msg.data.signal === "ptrlv") {
             ptrlv(msg.data.data);
         }
     }
 
+    let lastx = 0;
+    let lasty = 0;
+    let cnt = 0;
     var drawing = false;
-    ptrdown = ({x, y}) => {
-        ctx.beginPath()
+
+    const cord = (x, y) => {
+        return {
+            x: x,
+            y: y,
+        }
+    }
+
+    const ptrdown = ({ x, y }) => {
         drawing = true
-        ctx.moveTo(x, y)
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        q.push(cord(x, y));
     }
 
-    ptrmove = ({x, y}) => {
-        if(!drawing) return;
+    const ptrmove = ({ x, y }) => {
+        if (!drawing) return;
         ctx.lineTo(x, y);
-        console.log(ctx.strokeStyle);
         ctx.stroke();
-        console.log("drawing a tiny line");
+        q.push(cord(x, y));
+        // drawPoints();
     }
 
-    ptrup = ({x, y}) => {
+    const ptrup = ({ x, y }) => {
         drawing = false;
-    }   
-
-    ptrlv = ({x, y}) => {
-        drawing = false;
+        // console.log(q);
+        q = [];
     }
 
+    const ptrlv = ({ x, y }) => {
+        drawing = false;
+        // console.log(q);
+        q = [];
+    }
 }
+
 

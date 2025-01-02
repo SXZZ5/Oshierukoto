@@ -2,8 +2,8 @@ let conn = null;
 let canvas_conn = null;
 let counter = 0;
 onmessage = (e) => {
-    console.log("bg: got message");
-    console.log(e.data);
+    // console.log("bg: got message");
+    // console.log(e.data);
     if(e.data.signal == "init") {
         console.log("bg: doing init")
         startConnection();
@@ -11,7 +11,9 @@ onmessage = (e) => {
         let blob = e.data.data;
         sendData(blob);
     } else if(e.data.signal == "canvas_data") {
+        console.log("bg: canvas data got");
         let blob = e.data.data;
+        console.log(blob);
         sendCanvasData(blob);
     }
 }
