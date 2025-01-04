@@ -55,6 +55,12 @@ func adjustControlSignal(encjson []byte, control map[string]any) []byte {
 	if ok {
 		return encjson
 	} else {
+		// deltaTime, ok := jsoninfo[0]["deltaTime"].(float64)
+		// if !ok {
+		// 	panic("deltaTime not a float64")
+		// }
+		// control["deltaTime"] = (deltaTime / 2)
+		control["deltaTime"] = 0;
 		combined := []map[string]any{control}
 		combined = append(combined, jsoninfo...)
 		marshalled, err := json.Marshal(combined)

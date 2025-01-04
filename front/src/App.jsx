@@ -99,7 +99,7 @@ async function drawer() {
 
     let lineWidth = 2,
         lineStyle = "black",
-        timeOld = Date.now();
+        timeOld = performance.now();
 
     let drawing = false;
     // cnv.onpointerdown = (e) => {
@@ -171,7 +171,7 @@ async function drawer() {
     cnv.onpointerdown = (e) => {
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrdown", data: coord });
-        let curTime = Date.now();
+        let curTime = performance.now();
         let deltaTime = curTime - timeOld;
         timeOld = curTime
         console.log("POINTER DOWN");
@@ -180,14 +180,14 @@ async function drawer() {
             coord: coord,
             style: lineWidth + lineStyle,
             deltaTime: deltaTime
-        }
+        };
         collection[active - 1].push(data);
-    }
+    };
     cnv.onpointerup = (e) => {
         console.log("ptrUp");
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrup", data: coord });
-        let curTime = Date.now();
+        let curTime = performance.now();
         let deltaTime = curTime - timeOld;
         timeOld = curTime
         let data = {
@@ -195,42 +195,36 @@ async function drawer() {
             coord: coord,
             style: lineWidth + lineStyle,
             deltaTime: deltaTime
-        }
+        };
         collection[active - 1].push(data);
-    }
+    };
     cnv.onpointerleave = (e) => {
         console.log("POINTER LEAVE");
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrlv", data: coord });
-        let curTime = Date.now();
+        let curTime = performance.now();
         let deltaTime = curTime - timeOld;
-        timeOld = curTime
+        timeOld = curTime;
         let data = {
             type: "ptrLeave",
             coord: coord,
             style: lineWidth + lineStyle,
             deltaTime: deltaTime
-        }
+        };
         collection[active - 1].push(data);
-    }
+    };
     cnv.onpointerrawupdate = (e) => {
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrmove", data: coord });
-        let curTime = Date.now();
+        let curTime = performance.now();
         let deltaTime = curTime - timeOld;
-        timeOld = curTime
+        timeOld = curTime;
         let data = {
             type: "ptrMove",
             coord: coord,
             style: lineWidth + lineStyle,
             deltaTime: deltaTime
-        }
+        };
         collection[active - 1].push(data);
-    }
+    };
 }
-
-/*
-okay so what I am thinking is 
-beginPath is not the problem for the most part. 
-the problem is paths not ending properly perhaps.
-*/

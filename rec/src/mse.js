@@ -124,13 +124,13 @@ async function drawer(ocanvas) {
 
         const g = () => {
             if(cpy.type == "ptrDown") {
-                ptrdown(cpy.coord)
+                setTimeout(ptrdown(cpy.coord), cpy.deltaTime);
             } else if(cpy.type == "ptrUp") {
-                ptrup(cpy.coord)
+                setTimeout(ptrup(cpy.coord), cpy.deltaTime);
             } else if(cpy.type == "ptrLeave") {
-                ptrlv(cpy.coord)
+                setTimeout(ptrlv(cpy.coord), 0);
             } else if(cpy.type == "ptrMove") {
-                ptrmove(cpy.coord);
+                setTimeout(ptrmove(cpy.coord), 0);
             }
         }
 
@@ -150,6 +150,7 @@ async function drawer(ocanvas) {
         // }
 
         g();
+        // setTimeout(g, 5);
         // setTimeout(g, cpy.deltaTime);
     }
     setInterval(f, 1);
