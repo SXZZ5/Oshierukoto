@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	// "os"
+	"os"
 	// "strconv"
 	"sync"
 	"time"
@@ -70,9 +70,9 @@ func main() {
 	var superimportant []byte
 	var queue [][]byte
 	var m sync.Mutex
-	var cqueue [][]byte
-	canvas_control := map[string]any{}
-	canvas_control = nil
+	// var cqueue [][]byte
+	// canvas_control := map[string]any{}
+	// canvas_control = nil
 
 	app.GET("/", func(c *gin.Context) {
 		ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -103,12 +103,12 @@ func main() {
 			m.Lock()
 			if len(queue) >= 4 {
 				queue = queue[1:]
-				jsoninfo := cqueue[0]
-				tmp := findControlSignal(jsoninfo)
-				if tmp != nil {
-					canvas_control = tmp
-				}
-				cqueue = cqueue[1:]
+				// jsoninfo := cqueue[0]
+				// tmp := findControlSignal(jsoninfo)
+				// if tmp != nil {
+				// 	canvas_control = tmp
+				// }
+				// cqueue = cqueue[1:]
 			}
 			queue = append(queue, combo)
 			m.Unlock()
@@ -129,33 +129,24 @@ func main() {
 			fmt.Println(err)
 		}
 		defer ws.Close()
-		cid := 0
+		// cid := 0
+		str := "./assets/canvas"
+		file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
+		if err != nil {
+			fmt.Println("err opening file:", err)
+		}
+		defer file.Close();
 		for {
-			_, message, err := ws.ReadMessage()
+			messageType, message, err := ws.ReadMessage()
 			if err != nil {
 				fmt.Println(err)
 			}
 			if len(message) <= 0 {
 				continue
 			}
-			cid++
-			// if cid == 1 {
-			// 	continue;
-			// }
-			if !json.Valid(message) {
-				continue
-			}
-			m.Lock()
-			cqueue = append(cqueue, message)
-			m.Unlock()
-			// fmt.Println("canvas message:", messageType)
-			// str := "./assets/canvas" + strconv.Itoa(cid) + ".json"
-			// file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
-			// if err != nil {
-			// 	fmt.Println("err opening file:", err)
-			// }
-			// file.Write(message)
-			// file.Close()
+			fmt.Println("canvas message:", messageType)
+			// str := "./assets/canvas.img"
+			file.Write(message)
 		}
 	})
 
@@ -191,7 +182,7 @@ func main() {
 				m.Lock()
 				acquired = true
 				combo := queue[0]
-				ws.WriteMessage(websocket.TextMessage, adjustControlSignal(cqueue[0], canvas_control))
+				// ws.WriteMessage(websocket.TextMessage, adjustControlSignal(cqueue[0], canvas_control))
 				ws.WriteMessage(websocket.BinaryMessage, combo)
 				m.Unlock()
 				acquired = false
@@ -202,14 +193,14 @@ func main() {
 				m.Lock()
 				acquired = true
 				queue = queue[1:]
-				cstart := cqueue[0]
-				cqueue = cqueue[1:]
+				// cstart := cqueue[0]
+				// cqueue = cqueue[1:]
 				m.Unlock()
 				acquired = false
-				tmp := findControlSignal(cstart)
-				if tmp != nil {
-					canvas_control = tmp
-				}
+				// tmp := findControlSignal(cstart)
+				// if tmp != nil {
+				// 	canvas_control = tmp
+				// }
 				counter++
 			}
 		}

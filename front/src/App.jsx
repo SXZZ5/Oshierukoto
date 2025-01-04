@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from "react";
-
 let connworker = null;
 
 const audioconf = {
@@ -69,11 +68,6 @@ async function start_recording(stream) {
         else active = 1;
         console.log("some data got");
         connworker.postMessage({ signal: "data", data: e.data });
-        let cdata = null;
-        if (c.length > 0) cdata = c;
-        connworker.postMessage({ signal: "canvas_data", data: JSON.stringify(cdata) })
-        if (active == 1) collection[1] = [];
-        else if (active == 2) collection[0] = [];
     })
     console.log("recorder created");
     console.log(recorder);
@@ -90,147 +84,79 @@ var active = 1;
 
 async function drawer() {
     const worker = new Worker(new URL("draw.js", import.meta.url));
-
     var cnv = document.getElementById("cnv");
     cnv.width = cnv.offsetWidth;
     cnv.height = cnv.offsetHeight;
     const offscreen_canvas = cnv.transferControlToOffscreen();
     worker.postMessage({ signal: "init", data: offscreen_canvas }, [offscreen_canvas]);
 
-    let lineWidth = 2,
-        lineStyle = "black",
-        timeOld = Date.now();
-
-    let drawing = false;
-    // cnv.onpointerdown = (e) => {
-    //     drawing = true;
-    //     let coord = { x: e.offsetX, y: e.offsetY };
-    //     worker.postMessage({ signal: "ptrdown", data: coord });
-    //     let curTime = Date.now();
-    //     let deltaTime = curTime - timeOld;
-    //     timeOld = curTime
-    //     console.log("POINTER DOWN");
-    //     let data = {
-    //         type: "beginPath",
-    //         coord: coord,
-    //         style: lineWidth + lineStyle,
-    //         deltaTime: deltaTime
-    //     }
-    //     collection[active - 1].push(data);
-    // }
-    // cnv.onpointerup = (e) => {
-    //     console.log("ptrUp");
-    //     let coord = { x: e.offsetX, y: e.offsetY };
-    //     worker.postMessage({ signal: "ptrup", data: coord });
-    //     // if(!drawing) return;
-    //     // drawing = false;
-    //     let curTime = Date.now();
-    //     let deltaTime = curTime - timeOld;
-    //     timeOld = curTime
-    //     let data = {
-    //         type: "endPath",
-    //         coord: coord,
-    //         style: lineWidth + lineStyle,
-    //         deltaTime: deltaTime
-    //     }
-    //     collection[active - 1].push(data);
-    // }
-    // cnv.onpointerleave = (e) => {
-    //     console.log("POINTER LEAVE");
-    //     let coord = { x: e.offsetX, y: e.offsetY };
-    //     worker.postMessage({ signal: "ptrlv", data: coord });
-    //     // if(!drawing) return;
-    //     // drawing = false;
-    //     let curTime = Date.now();
-    //     let deltaTime = curTime - timeOld;
-    //     timeOld = curTime
-    //     let data = {
-    //         type: "endPath",
-    //         coord: coord,
-    //         style: lineWidth + lineStyle,
-    //         deltaTime: deltaTime
-    //     }
-    //     collection[active - 1].push(data);
-    // }
-    // cnv.onpointerrawupdate = (e) => {
-    //     let coord = { x: e.offsetX, y: e.offsetY };
-    //     worker.postMessage({ signal: "ptrmove", data: coord });
-    //     // if(!drawing) return;
-    //     let curTime = Date.now();
-    //     let deltaTime = curTime - timeOld;
-    //     timeOld = curTime
-    //     let data = {
-    //         type: "lineTo",
-    //         coord: coord,
-    //         style: lineWidth + lineStyle,
-    //         deltaTime: deltaTime
-    //     }
-    //     collection[active - 1].push(data);
-    // }
-
     cnv.onpointerdown = (e) => {
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrdown", data: coord });
-        let curTime = Date.now();
-        let deltaTime = curTime - timeOld;
-        timeOld = curTime
-        console.log("POINTER DOWN");
-        let data = {
-            type: "ptrDown",
-            coord: coord,
-            style: lineWidth + lineStyle,
-            deltaTime: deltaTime
-        }
-        collection[active - 1].push(data);
     }
     cnv.onpointerup = (e) => {
-        console.log("ptrUp");
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrup", data: coord });
-        let curTime = Date.now();
-        let deltaTime = curTime - timeOld;
-        timeOld = curTime
-        let data = {
-            type: "ptrUp",
-            coord: coord,
-            style: lineWidth + lineStyle,
-            deltaTime: deltaTime
-        }
-        collection[active - 1].push(data);
     }
     cnv.onpointerleave = (e) => {
-        console.log("POINTER LEAVE");
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrlv", data: coord });
-        let curTime = Date.now();
-        let deltaTime = curTime - timeOld;
-        timeOld = curTime
-        let data = {
-            type: "ptrLeave",
-            coord: coord,
-            style: lineWidth + lineStyle,
-            deltaTime: deltaTime
-        }
-        collection[active - 1].push(data);
     }
     cnv.onpointerrawupdate = (e) => {
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrmove", data: coord });
-        let curTime = Date.now();
-        let deltaTime = curTime - timeOld;
-        timeOld = curTime
-        let data = {
-            type: "ptrMove",
-            coord: coord,
-            style: lineWidth + lineStyle,
-            deltaTime: deltaTime
+    }
+
+    function encOut(enc) {
+        const abf = new ArrayBuffer(enc.byteLength);
+        enc.copyTo(abf);
+        connworker.postMessage({ signal: "canvas_data", data: abf});
+    }
+    function encErr(err) {
+        console.log("encoder error: ", err);    
+    }
+    const encoder = new VideoEncoder({ 
+        output: encOut,
+        error: encErr,
+    });
+    const config = {
+        // codec: "avc1.640028",
+        // codec: "av01.0.05M.10.0.110.09.16.09.0",
+        codec: "av01.0.05M.08.0.100.09.16.09.0",
+        // codec: "avc1.42E01E",
+        width: cnv.width,
+        height: cnv.height,
+        bitrate: 1000_000,
+        framerate: 20,
+    };
+    encoder.configure(config);
+
+    const invisibleCanvas = document.createElement("canvas");
+    invisibleCanvas.width = cnv.width;
+    invisibleCanvas.height = cnv.height;
+    const invisibleCtx = invisibleCanvas.getContext("2d");
+    const cptstream = invisibleCanvas.captureStream(20);
+    const track = cptstream.getVideoTracks()[0];
+    const proc = new MediaStreamTrackProcessor({
+        track: track,
+    });
+
+    worker.onmessage = (e) => {
+        if (e.data.signal === "imgData") {
+            invisibleCtx.putImageData(e.data.data, 0, 0);
+            // track.requestFrame();
         }
-        collection[active - 1].push(data);
+    }
+
+    const reader = proc.readable.getReader();
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+            await encoder.flush();
+            encoder.close();
+            break;
+        }
+        encoder.encode(value);
+        value.close();
     }
 }
-
-/*
-okay so what I am thinking is 
-beginPath is not the problem for the most part. 
-the problem is paths not ending properly perhaps.
-*/

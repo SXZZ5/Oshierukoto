@@ -8,6 +8,7 @@ self.onmessage = (e) => {
 
 function init(cnv) {
     const ctx = cnv.getContext("2d");
+    ctx.willReadFrequently = true;
     console.log(ctx);
     ctx.strokeStyle = "black";
     ctx.lineWidth = 4;
@@ -67,6 +68,9 @@ function init(cnv) {
         // console.log(q);
         q = [];
     }
+
+    setInterval(() => {
+        const imgData = ctx.getImageData(0, 0, cnv.width, cnv.height);
+        self.postMessage({ signal: "imgData", data: imgData });
+    }, 50);
 }
-
-
