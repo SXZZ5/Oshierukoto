@@ -4,33 +4,27 @@ export default function App() {
     useEffect(() => {
         launch_worker();
     })
-    return <div>
-        <div style={{ height: "100vh", width: "100vw" }}>
-            <canvas id="cnv" style={{ height: "100vh", width: "100vw" }}></canvas>
-        </div>
+    return <>
+        <video id="cnv" autoPlay controls></video>
         <video id="vid" autoPlay controls></video>
-    </div>
+    </>
 }
-
 
 function launch_worker() {
     let myworker = new Worker(new URL("./mse.js", import.meta.url));
-    var cnv = document.getElementById("cnv");
-    cnv.width = cnv.offsetWidth;
-    cnv.height = cnv.offsetHeight;
-    console.log(cnv);
-    const ofsc = cnv.transferControlToOffscreen();
-    console.log(ofsc)
-    myworker.postMessage({signal: "cnv_init", data: ofsc}, [ofsc])
+    
     myworker.onmessage = (e) => {
         if(e.data.signal === "download") {
-
+            return;
         }
         else if(e.data.signal === "handle") {
             const handle = e.data.handle;
             console.log("handle: ", handle);
             let vid = document.getElementById("vid");
             vid.srcObject = handle;
+        } else if(e.data.signal === "canvas_handle") {
+            let vid2 = document.getElementById("cnv");
+            vid2.srcObject = e.data.handle;
         }
     }
 }

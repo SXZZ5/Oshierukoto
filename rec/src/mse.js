@@ -12,20 +12,36 @@ const str = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
 var media_source = new MediaSource();
 const msehandle = media_source.handle;
 self.postMessage({ signal: "handle", handle: msehandle }, [msehandle]);
+var canvas_source = new MediaSource();
+const msecanvashandle = canvas_source.handle;
+self.postMessage({ signal: "canvas_handle", handle: msecanvashandle }, [msecanvashandle]);
+
 onmessage = (e) => {
     if (e.data.signal == "cnv_init") {
         console.log("Canvas Initialisation message received by the mse.js file");
-        drawer(e.data.data);
+        // drawer(e.data.data);
+        return;
     }
 }
 
-let counter = 0;
-let srcbuf = null;
+var counter = 0;
+var srcbuf = null;
 media_source.addEventListener("sourceopen", (e) => {
     console.log("sourceopened on media source");
     srcbuf = media_source.addSourceBuffer(str);
     srcbuf.mode = "sequence";
     console.log("srcbuf: ", srcbuf);
+});
+
+var canvas_str = 'video/mp4; codecs="av01.0.05M.08"';
+console.log(MediaSource.isTypeSupported(canvas_str));
+
+var canvas_srcbuf = null;
+canvas_source.addEventListener("sourceopen", (e) => {
+    console.log("canvas sourceopened on media source");
+    canvas_srcbuf = canvas_source.addSourceBuffer(canvas_str);
+    canvas_srcbuf.mode = "sequence";
+    console.log("canvas srcbuf: ", canvas_srcbuf);
 });
 
 const ws = new WebSocket("ws://localhost:8080/receive");
@@ -37,28 +53,18 @@ ws.onopen = (e) => {
     console.log("websocket opened");
 }
 
-let msgparity = 0;
+var msgparity = 0;
 ws.onmessage = (e) => {
     if (srcbuf === null) return;
+    if (canvas_srcbuf === null) return;
+    ++counter;
     console.log("received data from server");
     if (msgparity == 0) {
-        console.log("this should be a json message");
-        let newdata = JSON.parse(e.data);
-        if (newdata !== null) {
-            canvasBuffer.push(...newdata)
-        }
         msgparity = (msgparity + 1) % 2;
-        return;
-    }
-    ++counter;
-    console.log("this should be a binary message");
-    console.log(typeof (e.data));
-    msgparity = (msgparity + 1) % 2;
-    e.data.arrayBuffer().
-        then((buff) => {
+        console.log("this should be a facecam message");
+        e.data.arrayBuffer().then((buff) => {
             if (!srcbuf.updating) {
                 console.log("appending buffer: ", counter);
-                self.postMessage({ signal: "download", buff: buff });
                 try {
                     srcbuf.appendBuffer(buff);
                 } catch (e) {
@@ -66,9 +72,26 @@ ws.onmessage = (e) => {
                 }
             }
         })
+        return;
+    } else {
+        msgparity = (msgparity + 1) % 2;
+        console.log("this should be a canvas message");
+        console.log(typeof (e.data));
+        e.data.arrayBuffer().
+            then((buff) => {
+                if (!canvas_srcbuf.updating) {
+                    console.log("appending buffer: ", counter);
+                    try {
+                        canvas_srcbuf.appendBuffer(buff);
+                    } catch (e) {
+                        console.log("error appending buffer: ", e);
+                    }
+                }
+            })
+    }
 }
 
-var canvasBuffer = [];
+let canvasBuffer = [];
 async function drawer(ocanvas) {
     const ctx = ocanvas.getContext("2d");
     ctx.lineJoin = "round"
@@ -123,13 +146,13 @@ async function drawer(ocanvas) {
         ctx.strokeStyle = color;
 
         const g = () => {
-            if(cpy.type == "ptrDown") {
+            if (cpy.type == "ptrDown") {
                 ptrdown(cpy.coord)
-            } else if(cpy.type == "ptrUp") {
+            } else if (cpy.type == "ptrUp") {
                 ptrup(cpy.coord)
-            } else if(cpy.type == "ptrLeave") {
+            } else if (cpy.type == "ptrLeave") {
                 ptrlv(cpy.coord)
-            } else if(cpy.type == "ptrMove") {
+            } else if (cpy.type == "ptrMove") {
                 ptrmove(cpy.coord);
             }
         }

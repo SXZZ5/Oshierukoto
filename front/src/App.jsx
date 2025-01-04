@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 let connworker = null;
 
 const audioconf = {
@@ -108,6 +108,8 @@ async function drawer() {
     }
 
     function encOut(enc) {
+        console.log("encframe_tstmp: " + enc.timestamp);
+        console.log("encframe_duration: " + enc.duration);
         const abf = new ArrayBuffer(enc.byteLength);
         enc.copyTo(abf);
         connworker.postMessage({ signal: "canvas_data", data: abf});
@@ -122,41 +124,23 @@ async function drawer() {
     const config = {
         // codec: "avc1.640028",
         // codec: "av01.0.05M.10.0.110.09.16.09.0",
-        codec: "av01.0.05M.08.0.100.09.16.09.0",
+        // codec: "av01.0.05M.08.0.100.09.16.09.0",
+        codec: 'av01.0.05M.08',
         // codec: "avc1.42E01E",
-        width: cnv.width,
         height: cnv.height,
-        bitrate: 1000_000,
-        framerate: 20,
+        width: cnv.width,
+        frameRate: 20, 
+        bitrate: 500_000,
     };
     encoder.configure(config);
 
-    const invisibleCanvas = document.createElement("canvas");
-    invisibleCanvas.width = cnv.width;
-    invisibleCanvas.height = cnv.height;
-    const invisibleCtx = invisibleCanvas.getContext("2d");
-    const cptstream = invisibleCanvas.captureStream(20);
-    const track = cptstream.getVideoTracks()[0];
-    const proc = new MediaStreamTrackProcessor({
-        track: track,
-    });
-
     worker.onmessage = (e) => {
         if (e.data.signal === "imgData") {
-            invisibleCtx.putImageData(e.data.data, 0, 0);
-            // track.requestFrame();
+            const vframe = e.data.data;
+            console.log("vframe_tstmp: " + vframe.timestamp);
+            console.log("vframe_duration: " + vframe.duration);
+            encoder.encode(vframe, {keyFrame: true});
+            vframe.close();
         }
-    }
-
-    const reader = proc.readable.getReader();
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            await encoder.flush();
-            encoder.close();
-            break;
-        }
-        encoder.encode(value);
-        value.close();
     }
 }

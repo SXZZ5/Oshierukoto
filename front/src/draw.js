@@ -46,31 +46,30 @@ function init(cnv) {
         drawing = true
         ctx.beginPath();
         ctx.moveTo(x, y);
-        q.push(cord(x, y));
     }
 
     const ptrmove = ({ x, y }) => {
         if (!drawing) return;
         ctx.lineTo(x, y);
         ctx.stroke();
-        q.push(cord(x, y));
         // drawPoints();
     }
 
     const ptrup = ({ x, y }) => {
         drawing = false;
         // console.log(q);
-        q = [];
     }
 
     const ptrlv = ({ x, y }) => {
         drawing = false;
         // console.log(q);
-        q = [];
     }
 
+    // const sliceSize = 1200*1000;
+    // let timestamp = 0;
     setInterval(() => {
-        const imgData = ctx.getImageData(0, 0, cnv.width, cnv.height);
-        self.postMessage({ signal: "imgData", data: imgData });
-    }, 50);
+        const vframe = new VideoFrame(cnv, { timestamp: performance.now() });
+        self.postMessage({ signal: "imgData", data: vframe }, [vframe]);
+        // timestamp += sliceSize;
+    }, 1000 / 20);
 }
