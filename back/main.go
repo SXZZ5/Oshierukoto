@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"strconv"
+	// "strconv"
 
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	// "strconv"
 	"sync"
@@ -24,18 +25,36 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func CanvastoMP4(file string, q *[][]byte) {
-	cmd := exec.Command("ffmpeg", "-framerate", "20", "-i", file, "-c", "copy",
-		"-movflags", "frag_keyframe+empty_moov+default_base_moof", file+".mp4")
-	err := cmd.Run()
+func CanvastoMP4(canvas_data *[]byte, canvas_q *[][]byte) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error getting current directory:", err)
+		return
+	}
+	path := filepath.Join(cwd, "assets")
+	path = filepath.Join(path, "canvas_temp")
+	fmt.Println("path: ", path)
+
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0777)
+	if err != nil {
+		fmt.Println("err opening dumping network packet to file:", err)
+	}
+	file.Write(*canvas_data)
+	file.Close()
+
+	vidpath := filepath.Join(cwd, "assets")
+	vidpath = filepath.Join(vidpath, "canvas_out.mp4")
+	cmd := exec.Command("ffmpeg", "-y", "-framerate", "20", "-i", "./assets/canvas_temp", "-c", "copy",
+		"-movflags", "frag_keyframe+empty_moov+default_base_moof", vidpath)
+	err = cmd.Run()
 	if err != nil {
 		fmt.Println(err)
 	}
-	fileContents, err := os.ReadFile(file + ".mp4")
+	fileContents, err := os.ReadFile(vidpath)
 	if err != nil {
 		fmt.Println("err reading file: ", err)
 	}
-	*q = append(*q, fileContents)
+	*canvas_q = append(*canvas_q, fileContents)
 }
 
 func main() {
@@ -98,17 +117,8 @@ func main() {
 			if len(message) <= 0 {
 				continue
 			}
-			// fmt.Println("canvas message:", messageType)
-
-			str := "./assets/canvas" + strconv.Itoa(canvas_id)
-			file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
-			if err != nil {
-				fmt.Println("err opening file:", err)
-			}
-			file.Write(message)
-			file.Close()
 			m.Lock()
-			CanvastoMP4(str, &cqueue)
+			CanvastoMP4(&message, &cqueue)
 			m.Unlock()
 			fmt.Println("one canvas fmp4 segment done")
 			canvas_id++
@@ -143,20 +153,20 @@ func main() {
 				acquired = true
 				ws.WriteMessage(websocket.BinaryMessage, queue[0])
 				ws.WriteMessage(websocket.BinaryMessage, cqueue[0])
-				str := "./assets/sentdata" + strconv.Itoa(counter) + ".mp4"
-				file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
-				if err != nil {
-					fmt.Println("err opening file: ", err)
-				}
-				file.Write(queue[0])
-				str = "./assets/sentcanvas" + strconv.Itoa(counter) + ".mp4"
-				file, err = os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
-				if err != nil {
-					fmt.Println("err opening file: ", err)
-				}
-				file.Write(cqueue[0])
-				queue = queue[1:]
-				cqueue = cqueue[1:]
+				// str := "./assets/sentdata" + strconv.Itoa(counter) + ".mp4"
+				// file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
+				// if err != nil {
+				// 	fmt.Println("err opening file: ", err)
+				// }
+				// file.Write(queue[0])
+				// str = "./assets/sentcanvas" + strconv.Itoa(counter) + ".mp4"
+				// file, err = os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
+				// if err != nil {
+				// 	fmt.Println("err opening file: ", err)
+				// }
+				// file.Write(cqueue[0])
+				queue = queue[1:] 				//not including this "popping" of the buffer causes problems.
+				cqueue = cqueue[1:]				//the same video gets resent on the next "ready" signal from receiver.
 				m.Unlock()
 				acquired = false
 				counter++
