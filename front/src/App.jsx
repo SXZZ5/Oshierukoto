@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-let connworker = null;
+var connworker = null;
 
 const audioconf = {
     channelCount: 1,
@@ -66,21 +66,26 @@ async function start_recording(stream) {
         let c = collection[active - 1];
         if (active == 1) active = 2;
         else active = 1;
+        const blob = new Blob(c, {type: "video/mp4"});
+        console.log("some data got", blob);
+        connworker.postMessage({ signal: "canvas_data", data: blob });
         console.log("some data got");
         connworker.postMessage({ signal: "data", data: e.data });
+        c = null;
+        if(active == 1) collection[1] = [];
+        else collection[0] = [];
     })
     console.log("recorder created");
     console.log(recorder);
     recorder.addEventListener("stop", (e) => {
-        recorder.start(2000);
+        recorder.start(4000);
     })
-    recorder.start(2000);
+    recorder.start(4000);
 }
 
 var collection = new Array(2);
 collection[0] = [], collection[1] = []
 var active = 1;
-
 
 async function drawer() {
     const worker = new Worker(new URL("draw.js", import.meta.url));
@@ -112,7 +117,7 @@ async function drawer() {
         console.log("encframe_duration: " + enc.duration);
         const abf = new ArrayBuffer(enc.byteLength);
         enc.copyTo(abf);
-        connworker.postMessage({ signal: "canvas_data", data: abf});
+        collection[active - 1].push(abf);
     }
     function encErr(err) {
         console.log("encoder error: ", err);    
@@ -122,11 +127,9 @@ async function drawer() {
         error: encErr,
     });
     const config = {
-        // codec: "avc1.640028",
         // codec: "av01.0.05M.10.0.110.09.16.09.0",
         // codec: "av01.0.05M.08.0.100.09.16.09.0",
         codec: 'av01.0.05M.08',
-        // codec: "avc1.42E01E",
         height: cnv.height,
         width: cnv.width,
         frameRate: 20, 

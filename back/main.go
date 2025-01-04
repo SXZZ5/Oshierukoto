@@ -90,8 +90,6 @@ func main() {
 		}
 		defer ws.Close()
 		canvas_id := 1
-		counter := 0
-
 		for {
 			_, message, err := ws.ReadMessage()
 			if err != nil {
@@ -102,7 +100,6 @@ func main() {
 			}
 			// fmt.Println("canvas message:", messageType)
 
-			counter++
 			str := "./assets/canvas" + strconv.Itoa(canvas_id)
 			file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
 			if err != nil {
@@ -110,14 +107,11 @@ func main() {
 			}
 			file.Write(message)
 			file.Close()
-			if counter == 100 {
-				m.Lock()
-				CanvastoMP4(str, &cqueue)
-				m.Unlock()
-				fmt.Println("one canvas fmp4 segment done")
-				counter = 0
-				canvas_id++
-			}
+			m.Lock()
+			CanvastoMP4(str, &cqueue)
+			m.Unlock()
+			fmt.Println("one canvas fmp4 segment done")
+			canvas_id++
 		}
 	})
 

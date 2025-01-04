@@ -53,7 +53,28 @@ ws.onopen = (e) => {
     console.log("websocket opened");
 }
 
+var facecam_q = [];
+var canvas_q = [];
 var msgparity = 0;
+
+function pushToSrcBufs() {
+    if (srcbuf.updating || canvas_srcbuf.updating) return;
+    let cq = canvas_q.shift();
+    let fq = facecam_q.shift();
+    try {
+        srcbuf.appendBuffer(fq);
+    } catch (e) {
+        console.log("error appending facecam buffer: ", e);
+    }
+
+    try {
+        canvas_srcbuf.appendBuffer(cq);
+    } catch (e) {
+        console.log("error appending canvas buffer: ", e);
+    }
+}
+
+
 ws.onmessage = (e) => {
     if (srcbuf === null) return;
     if (canvas_srcbuf === null) return;
@@ -63,31 +84,19 @@ ws.onmessage = (e) => {
         msgparity = (msgparity + 1) % 2;
         console.log("this should be a facecam message");
         e.data.arrayBuffer().then((buff) => {
-            if (!srcbuf.updating) {
-                console.log("appending buffer: ", counter);
-                try {
-                    srcbuf.appendBuffer(buff);
-                } catch (e) {
-                    console.log("error appending buffer: ", e);
-                }
-            }
+            facecam_q.push(buff);
         })
+        pushToSrcBufs();
         return;
     } else {
         msgparity = (msgparity + 1) % 2;
         console.log("this should be a canvas message");
         console.log(typeof (e.data));
-        e.data.arrayBuffer().
-            then((buff) => {
-                if (!canvas_srcbuf.updating) {
-                    console.log("appending buffer: ", counter);
-                    try {
-                        canvas_srcbuf.appendBuffer(buff);
-                    } catch (e) {
-                        console.log("error appending buffer: ", e);
-                    }
-                }
-            })
+        e.data.arrayBuffer().then((buff) => {
+            canvas_q.push(buff);
+        })
+        pushToSrcBufs();
+        return;
     }
 }
 

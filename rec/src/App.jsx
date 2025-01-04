@@ -11,6 +11,20 @@ export default function App() {
 }
 
 function launch_worker() {
+    let vid = document.getElementById("vid");
+    vid.onpause = () => {
+        vid.play();
+    }
+    vid.onended = () => {
+        vid.play();
+    }
+    let cnv = document.getElementById("cnv");
+    cnv.onpause = () => {
+        cnv.play();
+    }
+    cnv.onended = () => {
+        cnv.play();
+    }
     let myworker = new Worker(new URL("./mse.js", import.meta.url));
     
     myworker.onmessage = (e) => {

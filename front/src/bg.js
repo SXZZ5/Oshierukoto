@@ -51,7 +51,4 @@ function sendCanvasData(blob) {
         return;
     }
     canvas_conn.send(blob);
-    // blob.arrayBuffer().then((buff) => {
-    //     canvas_conn.send(buff);
-    // })
 }
