@@ -3,13 +3,15 @@ package main
 import (
 	"fmt"
 	"net/http"
+	// "strconv"
 
-	// "os"
+	"os"
+	"os/exec"
+	"path/filepath"
+
 	// "strconv"
 	"sync"
 	"time"
-
-	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -23,52 +25,36 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func findControlSignal(encjson []byte) map[string]any {
-	jsoninfo := []map[string]any{}
-	err := json.Unmarshal(encjson, &jsoninfo)
+func CanvastoMP4(canvas_data *[]byte, canvas_q *[][]byte) {
+	cwd, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		fmt.Println("Error getting current directory:", err)
+		return
 	}
-	for i := len(jsoninfo) - 1; i >= 0; i-- {
-		tmp, ok := jsoninfo[i]["type"].(string)
-		if ok && (tmp == "ptrUp" || tmp == "ptrDown" || tmp == "ptrLeave") {
-			return jsoninfo[i]
-		}
-	}
-	return nil
-}
+	path := filepath.Join(cwd, "assets")
+	path = filepath.Join(path, "canvas_temp")
+	fmt.Println("path: ", path)
 
-func adjustControlSignal(encjson []byte, control map[string]any) []byte {
-	if control == nil {
-		return encjson
-	}
-	jsoninfo := []map[string]any{}
-	err := json.Unmarshal(encjson, &jsoninfo)
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0777)
 	if err != nil {
-		panic(err)
+		fmt.Println("err opening dumping network packet to file:", err)
 	}
-	if len(jsoninfo) <= 0 {
-		return encjson
+	file.Write(*canvas_data)
+	file.Close()
+
+	vidpath := filepath.Join(cwd, "assets")
+	vidpath = filepath.Join(vidpath, "canvas_out.mp4")
+	cmd := exec.Command("ffmpeg", "-y", "-framerate", "20", "-i", "./assets/canvas_temp", "-c", "copy",
+		"-movflags", "frag_keyframe+empty_moov+default_base_moof", vidpath)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println(err)
 	}
-	tmp := jsoninfo[0]["type"].(string)
-	ok := tmp == "ptrUp" || tmp == "ptrDown" || tmp == "ptrLeave"
-	if ok {
-		return encjson
-	} else {
-		// deltaTime, ok := jsoninfo[0]["deltaTime"].(float64)
-		// if !ok {
-		// 	panic("deltaTime not a float64")
-		// }
-		// control["deltaTime"] = (deltaTime / 2)
-		control["deltaTime"] = 0;
-		combined := []map[string]any{control}
-		combined = append(combined, jsoninfo...)
-		marshalled, err := json.Marshal(combined)
-		if err != nil {
-			panic(err)
-		}
-		return marshalled
+	fileContents, err := os.ReadFile(vidpath)
+	if err != nil {
+		fmt.Println("err reading file: ", err)
 	}
+	*canvas_q = append(*canvas_q, fileContents)
 }
 
 func main() {
@@ -77,8 +63,8 @@ func main() {
 	var queue [][]byte
 	var m sync.Mutex
 	var cqueue [][]byte
-	canvas_control := map[string]any{}
-	canvas_control = nil
+	// canvas_control := map[string]any{}
+	// canvas_control = nil
 
 	app.GET("/", func(c *gin.Context) {
 		ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -109,23 +95,10 @@ func main() {
 			m.Lock()
 			if len(queue) >= 4 {
 				queue = queue[1:]
-				jsoninfo := cqueue[0]
-				tmp := findControlSignal(jsoninfo)
-				if tmp != nil {
-					canvas_control = tmp
-				}
 				cqueue = cqueue[1:]
 			}
 			queue = append(queue, combo)
 			m.Unlock()
-
-			// str := "./assets/data" + strconv.Itoa(counter) + ".mp4"
-			// file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
-			// if err != nil {
-			// 	fmt.Println("err opening file: ", err)
-			// }
-			// file.Write(combo)
-			// file.Close()
 		}
 	})
 
@@ -135,7 +108,7 @@ func main() {
 			fmt.Println(err)
 		}
 		defer ws.Close()
-		cid := 0
+		canvas_id := 1
 		for {
 			_, message, err := ws.ReadMessage()
 			if err != nil {
@@ -144,24 +117,11 @@ func main() {
 			if len(message) <= 0 {
 				continue
 			}
-			cid++
-			// if cid == 1 {
-			// 	continue;
-			// }
-			if !json.Valid(message) {
-				continue
-			}
 			m.Lock()
-			cqueue = append(cqueue, message)
+			CanvastoMP4(&message, &cqueue)
 			m.Unlock()
-			// fmt.Println("canvas message:", messageType)
-			// str := "./assets/canvas" + strconv.Itoa(cid) + ".json"
-			// file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
-			// if err != nil {
-			// 	fmt.Println("err opening file:", err)
-			// }
-			// file.Write(message)
-			// file.Close()
+			fmt.Println("one canvas fmp4 segment done")
+			canvas_id++
 		}
 	})
 
@@ -178,7 +138,7 @@ func main() {
 			}
 			ws.Close()
 		}()
-		counter := 0
+		counter := 1
 		for {
 			if len(queue) == 0 {
 				time.Sleep(10 * time.Millisecond)
@@ -189,33 +149,26 @@ func main() {
 				fmt.Println(err)
 			}
 			if messageType == websocket.TextMessage && string(message) == "ready" {
+				m.Lock()
+				acquired = true
+				ws.WriteMessage(websocket.BinaryMessage, queue[0])
+				ws.WriteMessage(websocket.BinaryMessage, cqueue[0])
 				// str := "./assets/sentdata" + strconv.Itoa(counter) + ".mp4"
 				// file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
 				// if err != nil {
 				// 	fmt.Println("err opening file: ", err)
 				// }
-				m.Lock()
-				acquired = true
-				combo := queue[0]
-				ws.WriteMessage(websocket.TextMessage, adjustControlSignal(cqueue[0], canvas_control))
-				ws.WriteMessage(websocket.BinaryMessage, combo)
+				// file.Write(queue[0])
+				// str = "./assets/sentcanvas" + strconv.Itoa(counter) + ".mp4"
+				// file, err = os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
+				// if err != nil {
+				// 	fmt.Println("err opening file: ", err)
+				// }
+				// file.Write(cqueue[0])
+				queue = queue[1:] 				//not including this "popping" of the buffer causes problems.
+				cqueue = cqueue[1:]				//the same video gets resent on the next "ready" signal from receiver.
 				m.Unlock()
 				acquired = false
-				ws.WriteMessage(websocket.TextMessage, []byte("renderReady"))
-				// file.Write(combo)
-				// file.Close()
-				acquired = true
-				m.Lock()
-				acquired = true
-				queue = queue[1:]
-				cstart := cqueue[0]
-				cqueue = cqueue[1:]
-				m.Unlock()
-				acquired = false
-				tmp := findControlSignal(cstart)
-				if tmp != nil {
-					canvas_control = tmp
-				}
 				counter++
 			}
 		}

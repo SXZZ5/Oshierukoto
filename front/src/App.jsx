@@ -1,6 +1,5 @@
-import { useEffect, useState, useRef } from "react";
-
-let connworker = null;
+import { useEffect, useRef } from "react";
+var connworker = null;
 
 const audioconf = {
     channelCount: 1,
@@ -67,164 +66,84 @@ async function start_recording(stream) {
         let c = collection[active - 1];
         if (active == 1) active = 2;
         else active = 1;
+        const blob = new Blob(c, {type: "video/mp4"});
+        console.log("some data got", blob);
+        connworker.postMessage({ signal: "canvas_data", data: blob });
         console.log("some data got");
         connworker.postMessage({ signal: "data", data: e.data });
-        let cdata = null;
-        if (c.length > 0) cdata = c;
-        connworker.postMessage({ signal: "canvas_data", data: JSON.stringify(cdata) })
-        if (active == 1) collection[1] = [];
-        else if (active == 2) collection[0] = [];
+        c = null;
+        if(active == 1) collection[1] = [];
+        else collection[0] = [];
     })
     console.log("recorder created");
     console.log(recorder);
     recorder.addEventListener("stop", (e) => {
-        recorder.start(2000);
+        recorder.start(4000);
     })
-    recorder.start(2000);
+    recorder.start(4000);
 }
 
 var collection = new Array(2);
 collection[0] = [], collection[1] = []
 var active = 1;
 
-
 async function drawer() {
     const worker = new Worker(new URL("draw.js", import.meta.url));
-
     var cnv = document.getElementById("cnv");
     cnv.width = cnv.offsetWidth;
     cnv.height = cnv.offsetHeight;
     const offscreen_canvas = cnv.transferControlToOffscreen();
     worker.postMessage({ signal: "init", data: offscreen_canvas }, [offscreen_canvas]);
 
-    let lineWidth = 2,
-        lineStyle = "black",
-        timeOld = performance.now();
-
-    let drawing = false;
-    // cnv.onpointerdown = (e) => {
-    //     drawing = true;
-    //     let coord = { x: e.offsetX, y: e.offsetY };
-    //     worker.postMessage({ signal: "ptrdown", data: coord });
-    //     let curTime = Date.now();
-    //     let deltaTime = curTime - timeOld;
-    //     timeOld = curTime
-    //     console.log("POINTER DOWN");
-    //     let data = {
-    //         type: "beginPath",
-    //         coord: coord,
-    //         style: lineWidth + lineStyle,
-    //         deltaTime: deltaTime
-    //     }
-    //     collection[active - 1].push(data);
-    // }
-    // cnv.onpointerup = (e) => {
-    //     console.log("ptrUp");
-    //     let coord = { x: e.offsetX, y: e.offsetY };
-    //     worker.postMessage({ signal: "ptrup", data: coord });
-    //     // if(!drawing) return;
-    //     // drawing = false;
-    //     let curTime = Date.now();
-    //     let deltaTime = curTime - timeOld;
-    //     timeOld = curTime
-    //     let data = {
-    //         type: "endPath",
-    //         coord: coord,
-    //         style: lineWidth + lineStyle,
-    //         deltaTime: deltaTime
-    //     }
-    //     collection[active - 1].push(data);
-    // }
-    // cnv.onpointerleave = (e) => {
-    //     console.log("POINTER LEAVE");
-    //     let coord = { x: e.offsetX, y: e.offsetY };
-    //     worker.postMessage({ signal: "ptrlv", data: coord });
-    //     // if(!drawing) return;
-    //     // drawing = false;
-    //     let curTime = Date.now();
-    //     let deltaTime = curTime - timeOld;
-    //     timeOld = curTime
-    //     let data = {
-    //         type: "endPath",
-    //         coord: coord,
-    //         style: lineWidth + lineStyle,
-    //         deltaTime: deltaTime
-    //     }
-    //     collection[active - 1].push(data);
-    // }
-    // cnv.onpointerrawupdate = (e) => {
-    //     let coord = { x: e.offsetX, y: e.offsetY };
-    //     worker.postMessage({ signal: "ptrmove", data: coord });
-    //     // if(!drawing) return;
-    //     let curTime = Date.now();
-    //     let deltaTime = curTime - timeOld;
-    //     timeOld = curTime
-    //     let data = {
-    //         type: "lineTo",
-    //         coord: coord,
-    //         style: lineWidth + lineStyle,
-    //         deltaTime: deltaTime
-    //     }
-    //     collection[active - 1].push(data);
-    // }
-
     cnv.onpointerdown = (e) => {
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrdown", data: coord });
-        let curTime = performance.now();
-        let deltaTime = curTime - timeOld;
-        timeOld = curTime
-        console.log("POINTER DOWN");
-        let data = {
-            type: "ptrDown",
-            coord: coord,
-            style: lineWidth + lineStyle,
-            deltaTime: deltaTime
-        };
-        collection[active - 1].push(data);
-    };
+    }
     cnv.onpointerup = (e) => {
-        console.log("ptrUp");
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrup", data: coord });
-        let curTime = performance.now();
-        let deltaTime = curTime - timeOld;
-        timeOld = curTime
-        let data = {
-            type: "ptrUp",
-            coord: coord,
-            style: lineWidth + lineStyle,
-            deltaTime: deltaTime
-        };
-        collection[active - 1].push(data);
-    };
+    }
     cnv.onpointerleave = (e) => {
-        console.log("POINTER LEAVE");
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrlv", data: coord });
-        let curTime = performance.now();
-        let deltaTime = curTime - timeOld;
-        timeOld = curTime;
-        let data = {
-            type: "ptrLeave",
-            coord: coord,
-            style: lineWidth + lineStyle,
-            deltaTime: deltaTime
-        };
-        collection[active - 1].push(data);
-    };
+    }
     cnv.onpointerrawupdate = (e) => {
         let coord = { x: e.offsetX, y: e.offsetY };
         worker.postMessage({ signal: "ptrmove", data: coord });
-        let curTime = performance.now();
-        let deltaTime = curTime - timeOld;
-        timeOld = curTime;
-        let data = {
-            type: "ptrMove",
-            coord: coord,
-            style: lineWidth + lineStyle,
-            deltaTime: deltaTime
-        };
-        collection[active - 1].push(data);
+    }
+
+    function encOut(enc) {
+        console.log("encframe_tstmp: " + enc.timestamp);
+        console.log("encframe_duration: " + enc.duration);
+        const abf = new ArrayBuffer(enc.byteLength);
+        enc.copyTo(abf);
+        collection[active - 1].push(abf);
+    }
+    function encErr(err) {
+        console.log("encoder error: ", err);    
+    }
+    const encoder = new VideoEncoder({ 
+        output: encOut,
+        error: encErr,
+    });
+    const config = {
+        // codec: "av01.0.05M.10.0.110.09.16.09.0",
+        // codec: "av01.0.05M.08.0.100.09.16.09.0",
+        codec: 'av01.0.05M.08',
+        height: cnv.height,
+        width: cnv.width,
+        frameRate: 20, 
+        bitrate: 500_000,
     };
+    encoder.configure(config);
+
+    worker.onmessage = (e) => {
+        if (e.data.signal === "imgData") {
+            const vframe = e.data.data;
+            console.log("vframe_tstmp: " + vframe.timestamp);
+            console.log("vframe_duration: " + vframe.duration);
+            encoder.encode(vframe, {keyFrame: true});
+            vframe.close();
+        }
+    }
 }

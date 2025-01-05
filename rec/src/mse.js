@@ -12,20 +12,36 @@ const str = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
 var media_source = new MediaSource();
 const msehandle = media_source.handle;
 self.postMessage({ signal: "handle", handle: msehandle }, [msehandle]);
+var canvas_source = new MediaSource();
+const msecanvashandle = canvas_source.handle;
+self.postMessage({ signal: "canvas_handle", handle: msecanvashandle }, [msecanvashandle]);
+
 onmessage = (e) => {
     if (e.data.signal == "cnv_init") {
         console.log("Canvas Initialisation message received by the mse.js file");
-        drawer(e.data.data);
+        // drawer(e.data.data);
+        return;
     }
 }
 
-let counter = 0;
-let srcbuf = null;
+var counter = 0;
+var srcbuf = null;
 media_source.addEventListener("sourceopen", (e) => {
     console.log("sourceopened on media source");
     srcbuf = media_source.addSourceBuffer(str);
     srcbuf.mode = "sequence";
     console.log("srcbuf: ", srcbuf);
+});
+
+var canvas_str = 'video/mp4; codecs="av01.0.05M.08"';
+console.log(MediaSource.isTypeSupported(canvas_str));
+
+var canvas_srcbuf = null;
+canvas_source.addEventListener("sourceopen", (e) => {
+    console.log("canvas sourceopened on media source");
+    canvas_srcbuf = canvas_source.addSourceBuffer(canvas_str);
+    canvas_srcbuf.mode = "sequence";
+    console.log("canvas srcbuf: ", canvas_srcbuf);
 });
 
 const ws = new WebSocket("ws://localhost:8080/receive");
@@ -37,38 +53,54 @@ ws.onopen = (e) => {
     console.log("websocket opened");
 }
 
-let msgparity = 0;
-ws.onmessage = (e) => {
-    if (srcbuf === null) return;
-    console.log("received data from server");
-    if (msgparity == 0) {
-        console.log("this should be a json message");
-        let newdata = JSON.parse(e.data);
-        if (newdata !== null) {
-            canvasBuffer.push(...newdata)
-        }
-        msgparity = (msgparity + 1) % 2;
-        return;
+var facecam_q = [];
+var canvas_q = [];
+var msgparity = 0;
+
+function pushToSrcBufs() {
+    if (srcbuf.updating || canvas_srcbuf.updating) return;
+    let cq = canvas_q.shift();
+    let fq = facecam_q.shift();
+    try {
+        srcbuf.appendBuffer(fq);
+    } catch (e) {
+        console.log("error appending facecam buffer: ", e);
     }
-    ++counter;
-    console.log("this should be a binary message");
-    console.log(typeof (e.data));
-    msgparity = (msgparity + 1) % 2;
-    e.data.arrayBuffer().
-        then((buff) => {
-            if (!srcbuf.updating) {
-                console.log("appending buffer: ", counter);
-                self.postMessage({ signal: "download", buff: buff });
-                try {
-                    srcbuf.appendBuffer(buff);
-                } catch (e) {
-                    console.log("error appending buffer: ", e);
-                }
-            }
-        })
+
+    try {
+        canvas_srcbuf.appendBuffer(cq);
+    } catch (e) {
+        console.log("error appending canvas buffer: ", e);
+    }
 }
 
-var canvasBuffer = [];
+
+ws.onmessage = (e) => {
+    if (srcbuf === null) return;
+    if (canvas_srcbuf === null) return;
+    ++counter;
+    console.log("received data from server");
+    if (msgparity == 0) {
+        msgparity = (msgparity + 1) % 2;
+        console.log("this should be a facecam message");
+        e.data.arrayBuffer().then((buff) => {
+            facecam_q.push(buff);
+        })
+        pushToSrcBufs();
+        return;
+    } else {
+        msgparity = (msgparity + 1) % 2;
+        console.log("this should be a canvas message");
+        console.log(typeof (e.data));
+        e.data.arrayBuffer().then((buff) => {
+            canvas_q.push(buff);
+        })
+        pushToSrcBufs();
+        return;
+    }
+}
+
+let canvasBuffer = [];
 async function drawer(ocanvas) {
     const ctx = ocanvas.getContext("2d");
     ctx.lineJoin = "round"
@@ -123,14 +155,14 @@ async function drawer(ocanvas) {
         ctx.strokeStyle = color;
 
         const g = () => {
-            if(cpy.type == "ptrDown") {
-                setTimeout(ptrdown(cpy.coord), cpy.deltaTime);
-            } else if(cpy.type == "ptrUp") {
-                setTimeout(ptrup(cpy.coord), cpy.deltaTime);
-            } else if(cpy.type == "ptrLeave") {
-                setTimeout(ptrlv(cpy.coord), 0);
-            } else if(cpy.type == "ptrMove") {
-                setTimeout(ptrmove(cpy.coord), 0);
+            if (cpy.type == "ptrDown") {
+                ptrdown(cpy.coord)
+            } else if (cpy.type == "ptrUp") {
+                ptrup(cpy.coord)
+            } else if (cpy.type == "ptrLeave") {
+                ptrlv(cpy.coord)
+            } else if (cpy.type == "ptrMove") {
+                ptrmove(cpy.coord);
             }
         }
 
