@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+// import { useRef } from "react";
+import { useEffect } from "react";
 var connworker = null;
 
 const audioconf = {
@@ -17,38 +18,66 @@ const videoconf = {
 }
 
 export default function App() {
-    const stream = useRef(null)
+    // const stream = useRef(null)
     useEffect(() => {
-        navigator.mediaDevices.getUserMedia({ video: videoconf, audio: audioconf })
-            .then((got_stream) => {
-                stream.current = got_stream.clone();
-                let vid = document.getElementById("vid");
-                vid.srcObject = stream.current;
-                start_recording(got_stream);
-                drawer();
-            })
-            .catch((err) => {
-                console.log("could not get stream", err);
-            })
-        // setInterval(() => {
-        //     console.log("stream", stream.current);
-        // }, 2000)
+        initialise();
     }, [])
     return <div>
         <div style={{ height: "100vh", width: "100vw" }}>
             <canvas id="cnv" style={{ height: "100vh", width: "100vw" }}></canvas>
         </div>
-        <video id='vid' autoPlay muted></video>
+        <video id="vid" autoPlay muted></video>
+        <button id="btn">Go Live</button>
     </div>
 }
 
+function initialise() {
+    drawer();
+    navigator.mediaDevices.getUserMedia({ video: videoconf, audio: audioconf })
+        .then((got_stream) => {
+            let vid = document.getElementById("vid");
+            vid.srcObject = got_stream.clone();
+            let btn = document.getElementById("btn");
+            btn.onclick = () => {
+                start_recording(got_stream);
+            }
+        })
+        .catch((err) => {
+            console.log("could not get stream", err);
+        })
+}
 
+
+function getStreamId() {
+    return "SkStream"
+}
+
+var canvas_ready = false;
+var connection_ready = false;
+var recording = false;
+var recorder = null;
 
 async function start_recording(stream) {
+    const streamId = getStreamId();
     console.log("inside start_recording");
-    connworker = await new Worker(new URL("bg.js", import.meta.url))
-    connworker.postMessage({ signal: "init" });
-    let recorder = new MediaRecorder(stream, {
+    connworker = new Worker(new URL("bg.js", import.meta.url))
+    connworker.postMessage({ signal: "init", data: streamId });
+    connworker.onmessage = (e) => {
+        if (e.data.signal === "connections open") {
+            connection_ready = true;
+            console.log("connready: " + connection_ready + ", canvasReady: " + canvas_ready)
+            console.log("recording: " + recording);
+            if (connection_ready && canvas_ready && !recording) {
+                console.log("beginning to record inside start_recording( ) call");
+                console.log(worker);
+                worker.postMessage({ signal: "start_recording" });
+                recording = true;
+                recorder.start(3000);
+            }
+        }
+    }
+
+    recorder = new MediaRecorder(stream, {
         //VideoAndAudioVersions
         mimeType: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
         // mimeType: 'video/mp4; codecs="avc1.58A01E, mp4a.40.2"',
@@ -66,34 +95,47 @@ async function start_recording(stream) {
         let c = collection[active - 1];
         if (active == 1) active = 2;
         else active = 1;
-        const blob = new Blob(c, {type: "video/mp4"});
+        const blob = new Blob(c, { type: "video/mp4" });
         console.log("some data got", blob);
         connworker.postMessage({ signal: "canvas_data", data: blob });
         console.log("some data got");
         connworker.postMessage({ signal: "data", data: e.data });
         c = null;
-        if(active == 1) collection[1] = [];
+        if (active == 1) collection[1] = [];
         else collection[0] = [];
     })
     console.log("recorder created");
     console.log(recorder);
     recorder.addEventListener("stop", (e) => {
-        recorder.start(4000);
+        recorder.start(3000);
     })
-    recorder.start(4000);
+    // recorder.start(3000);           //moved this to the callback when bg.js tells that connections are ready.
 }
 
 var collection = new Array(2);
 collection[0] = [], collection[1] = []
 var active = 1;
+var worker = null;
 
 async function drawer() {
-    const worker = new Worker(new URL("draw.js", import.meta.url));
+    worker = new Worker(new URL("draw.js", import.meta.url));
     var cnv = document.getElementById("cnv");
     cnv.width = cnv.offsetWidth;
     cnv.height = cnv.offsetHeight;
     const offscreen_canvas = cnv.transferControlToOffscreen();
     worker.postMessage({ signal: "init", data: offscreen_canvas }, [offscreen_canvas]);
+    worker.onmessage = (e) => {
+         if(e.data.signal === "canvas_ready") {   
+            canvas_ready = true;
+            console.log("connready: " + connection_ready + ", canvasReady: " + canvas_ready)
+            console.log("recording: " + recording);
+            if(connection_ready && canvas_ready && !recording) {
+                console.log("beginning to record inside drawer( ) call");
+                worker.postMessage({ signal: "start_recording" });
+                recording = true;
+                recorder.start(4000);
+            }
+        }
 
     cnv.onpointerdown = (e) => {
         let coord = { x: e.offsetX, y: e.offsetY };
@@ -120,9 +162,9 @@ async function drawer() {
         collection[active - 1].push(abf);
     }
     function encErr(err) {
-        console.log("encoder error: ", err);    
+        console.log("encoder error: ", err);
     }
-    const encoder = new VideoEncoder({ 
+    const encoder = new VideoEncoder({
         output: encOut,
         error: encErr,
     });
@@ -132,18 +174,20 @@ async function drawer() {
         codec: 'av01.0.05M.08',
         height: cnv.height,
         width: cnv.width,
-        frameRate: 20, 
+        frameRate: 20,
         bitrate: 500_000,
     };
     encoder.configure(config);
 
     worker.onmessage = (e) => {
-        if (e.data.signal === "imgData") {
+       if (e.data.signal === "imgData") {
             const vframe = e.data.data;
             console.log("vframe_tstmp: " + vframe.timestamp);
             console.log("vframe_duration: " + vframe.duration);
-            encoder.encode(vframe, {keyFrame: true});
+            encoder.encode(vframe, { keyFrame: true });
             vframe.close();
-        }
+        } 
+    }
+    
     }
 }

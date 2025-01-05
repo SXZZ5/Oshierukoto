@@ -1,16 +1,19 @@
-import { useEffect } from "react";
+// import { useEffect } from "react";
 
 export default function App() {
-    useEffect(() => {
-        launch_worker();
-    })
     return <>
         <video id="cnv" autoPlay controls></video>
         <video id="vid" autoPlay controls></video>
+        <button id="btn" onClick={launch_worker}>Watch.</button>
     </>
 }
 
+function getStreamId() {
+    return "SkStream"
+}
+
 function launch_worker() {
+    const streamId = getStreamId();
     let vid = document.getElementById("vid");
     vid.onpause = () => {
         vid.play();
@@ -25,7 +28,8 @@ function launch_worker() {
     cnv.onended = () => {
         cnv.play();
     }
-    let myworker = new Worker(new URL("./mse.js", import.meta.url));
+    let myworker = new Worker(new URL("./mse.js", import.meta.url), { type: "module" });
+    myworker.postMessage({ signal: "init", data: streamId });
     
     myworker.onmessage = (e) => {
         if(e.data.signal === "download") {
@@ -43,24 +47,34 @@ function launch_worker() {
     }
 }
 
-function download_video(buff) {
-    const blob = new Blob([buff], { type: 'video/mp4' });
 
-    // Create a URL for the Blob
-    const url = URL.createObjectURL(blob);
 
-    // Create a temporary anchor element to trigger a download
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'received_video.mp4'; // Specify the file name
-    document.body.appendChild(anchor);
 
-    // Trigger the download
-    anchor.click();
 
-    // Clean up
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
-}
 
-export { launch_worker };
+
+
+
+
+
+
+// function download_video(buff) {
+//     const blob = new Blob([buff], { type: 'video/mp4' });
+
+//     // Create a URL for the Blob
+//     const url = URL.createObjectURL(blob);
+
+//     // Create a temporary anchor element to trigger a download
+//     const anchor = document.createElement('a');
+//     anchor.href = url;
+//     anchor.download = 'received_video.mp4'; // Specify the file name
+//     document.body.appendChild(anchor);
+
+//     // Trigger the download
+//     anchor.click();
+
+//     // Clean up
+//     document.body.removeChild(anchor);
+//     URL.revokeObjectURL(url);
+// }
+
