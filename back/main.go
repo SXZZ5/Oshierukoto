@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 
 	// "strconv"
@@ -71,10 +72,12 @@ func (p *Publisher) Subscribe(data chan<- []byte, done <-chan bool) context.Cont
 func Dispatcher(pub *Publisher, trigger <-chan bool, ctx context.Context) {
 
 	var g = func() {
+		(*pub).M.Lock()
 		(*pub).QMutex.Lock()
+		defer (*pub).QMutex.Unlock()
+		defer (*pub).M.Unlock()
 		flen := len((*pub).facecam_q)
 		clen := len((*pub).canvas_q)
-		(*pub).QMutex.Unlock()
 		conditions := flen >= 3 && clen >= 3
 		if !conditions {
 			return
@@ -85,13 +88,11 @@ func Dispatcher(pub *Publisher, trigger <-chan bool, ctx context.Context) {
 			return
 		}
 
-		(*pub).QMutex.Lock()
 		facecam_copy := (*pub).facecam_q[0]
 		canvas_copy := (*pub).canvas_q[0]
 
 		(*pub).facecam_q = (*pub).facecam_q[1:]
 		(*pub).canvas_q = (*pub).canvas_q[1:]
-		(*pub).QMutex.Unlock()
 
 		if facecam_copy.id != canvas_copy.id {
 			panic("facecam and canvas packets are not the same")
@@ -114,13 +115,10 @@ func Dispatcher(pub *Publisher, trigger <-chan bool, ctx context.Context) {
 			revdel = append(revdel, todel[i])
 		}
 
-		(*pub).M.Lock()
 		for _, i := range revdel {
 			(*pub).subscribers = append((*pub).subscribers[:i], (*pub).subscribers[i+1:]...)
 			(*pub).subdone = append((*pub).subdone[:i], (*pub).subdone[i+1:]...)
 		}
-		(*pub).M.Unlock()
-
 		return
 	}
 
@@ -199,9 +197,16 @@ func main() {
 			if len(message) <= 0 {
 				continue
 			}
-			counter++
-			if counter == 1 {
+			if counter == 0 {
+				str := "./assets/firstpacket.mp4"
+				file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
+				if err != nil {
+					fmt.Println("err opening file:", err)
+				}
+				file.Write(message)
+				file.Close()
 				Superimportant[pubName] = message
+				counter = 1
 				continue
 			}
 
@@ -215,6 +220,14 @@ func main() {
 			(*ptr).QMutex.Unlock()
 
 			trigger <- true
+
+			str := "./assets/invid" + strconv.Itoa((*ptr).facecam_id) + ".mp4"
+			file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
+			if err != nil {
+				fmt.Println("err opening dumping network packet to file:", err)
+			}
+			file.Write(combo)
+			file.Close()
 
 			fmt.Println(messageType)
 		}
@@ -233,6 +246,8 @@ func main() {
 			fmt.Println(err)
 		}
 		defer ws.Close()
+		hold := []byte{}
+		counter := 0
 		for {
 			_, message, err := ws.ReadMessage()
 			if err != nil {
@@ -241,15 +256,35 @@ func main() {
 			if len(message) <= 0 {
 				continue
 			}
+			if counter == 0 {
+				hold = message
+				counter++
+				continue
+			}
+
+			if counter == 1 {
+				message = append(hold, message...)
+				counter++
+			}
+
 			fmp4 := CanvastoMP4(name, &message)
 			if fmp4 == nil {
 				continue
 			}
+
 			fmt.Println("one canvas fmp4 segment done")
 			(*ptr).canvas_id = (*ptr).canvas_id + 1
 			(*ptr).QMutex.Lock()
 			(*ptr).canvas_q = append((*ptr).canvas_q, CanvasPacket{id: (*ptr).canvas_id, data: *fmp4})
 			(*ptr).QMutex.Unlock()
+
+			str := "./assets/outvid" + strconv.Itoa((*ptr).canvas_id) + ".mp4"
+			file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
+			if err != nil {
+				fmt.Println("err opening dumping network packet to file:", err)
+			}
+			file.Write(*fmp4)
+			file.Close()
 		}
 	})
 

@@ -1,6 +1,5 @@
 let conn = null;
 let canvas_conn = null;
-let counter = 0;
 onmessage = (e) => {
     // console.log("bg: got message");
     // console.log(e.data);
@@ -11,7 +10,6 @@ onmessage = (e) => {
         let blob = e.data.data;
         sendData(blob);
     } else if(e.data.signal == "canvas_data") {
-        console.log("bg: canvas data got");
         let blob = e.data.data;
         console.log(blob);
         sendCanvasData(blob);
@@ -48,8 +46,7 @@ function sendData(blob) {
     if(conn.readyState !== WebSocket.OPEN) {
         return;
     }
-    ++counter;
-    console.log("bg: sending data: ", counter);
+    console.log("bg: sending FaceCamData time: ", performance.now());
     conn.send(blob);
 }
 
@@ -60,5 +57,6 @@ function sendCanvasData(blob) {
     if(canvas_conn.readyState !== WebSocket.OPEN) {
         return;
     }
+    console.log("bg: sending CanvasData time: ", performance.now());
     canvas_conn.send(blob);
 }

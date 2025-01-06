@@ -69,7 +69,7 @@ async function start_recording(stream) {
             console.log("recording: " + recording);
             if (connection_ready && canvas_ready && !recording) {
                 console.log("beginning to record inside start_recording( ) call");
-                console.log(worker);
+                console.log("recording start time: " + performance.now());
                 worker.postMessage({ signal: "start_recording" });
                 recording = true;
                 recorder.start(3000);
@@ -87,19 +87,19 @@ async function start_recording(stream) {
         // mimeType: 'video/mp4; codecs="avc1.58A00A"',  // extended profile supposedly
         // mimeType: 'video/mp4; codecs="avc1.42C00A"', //level 1 + constrained baseline profile
         // mimeType: 'video/mp4; codecs="avc1.42E01E"',
-        videoBitsPerSecond: 1000_000,
+        videoBitsPerSecond: 500_000,
         keyFrameInterval: 100,
     });
 
     recorder.addEventListener("dataavailable", (e) => {
+        console.log("recorder dataavailable time: " + performance.now());
         let c = collection[active - 1];
         if (active == 1) active = 2;
         else active = 1;
         const blob = new Blob(c, { type: "video/mp4" });
-        console.log("some data got", blob);
         connworker.postMessage({ signal: "canvas_data", data: blob });
-        console.log("some data got");
         connworker.postMessage({ signal: "data", data: e.data });
+        console.log("canvas size: " + blob.size + ", facecam size: " + e.data.size);
         c = null;
         if (active == 1) collection[1] = [];
         else collection[0] = [];
@@ -131,9 +131,10 @@ async function drawer() {
             console.log("recording: " + recording);
             if(connection_ready && canvas_ready && !recording) {
                 console.log("beginning to record inside drawer( ) call");
+                console.log("recording start time: " + performance.now()); 
                 worker.postMessage({ signal: "start_recording" });
                 recording = true;
-                recorder.start(4000);
+                recorder.start(3000);
             }
         }
 
@@ -155,8 +156,8 @@ async function drawer() {
     }
 
     function encOut(enc) {
-        console.log("encframe_tstmp: " + enc.timestamp);
-        console.log("encframe_duration: " + enc.duration);
+        // console.log("encframe_tstmp: " + enc.timestamp);
+        // console.log("encframe_duration: " + enc.duration);
         const abf = new ArrayBuffer(enc.byteLength);
         enc.copyTo(abf);
         collection[active - 1].push(abf);
@@ -182,8 +183,8 @@ async function drawer() {
     worker.onmessage = (e) => {
        if (e.data.signal === "imgData") {
             const vframe = e.data.data;
-            console.log("vframe_tstmp: " + vframe.timestamp);
-            console.log("vframe_duration: " + vframe.duration);
+            // console.log("vframe_tstmp: " + vframe.timestamp);
+            // console.log("vframe_duration: " + vframe.duration);
             encoder.encode(vframe, { keyFrame: true });
             vframe.close();
         } 
