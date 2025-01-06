@@ -1,3 +1,5 @@
+import { Mutex } from 'async-mutex'
+var mutex = new Mutex()
 //VideoAndAudioVersions
 const str = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
 // const str = 'video/mp4; codecs="avc1.58A01E, mp4a.40.2"'
@@ -17,14 +19,14 @@ const msecanvashandle = canvas_source.handle;
 self.postMessage({ signal: "canvas_handle", handle: msecanvashandle }, [msecanvashandle]);
 
 onmessage = (e) => {
-    if (e.data.signal == "cnv_init") {
+    if (e.data.signal == "init") {
         console.log("Canvas Initialisation message received by the mse.js file");
-        // drawer(e.data.data);
+        const streamId = e.data.data;
+        startConnection(streamId);
         return;
     }
 }
 
-var counter = 0;
 var srcbuf = null;
 media_source.addEventListener("sourceopen", (e) => {
     console.log("sourceopened on media source");
@@ -44,146 +46,71 @@ canvas_source.addEventListener("sourceopen", (e) => {
     console.log("canvas srcbuf: ", canvas_srcbuf);
 });
 
-const ws = new WebSocket("ws://localhost:8080/receive");
-ws.onopen = (e) => {
-    setInterval(() => {
-        if (srcbuf.updating) return;
-        else ws.send("ready");
-    }, 1000);
-    console.log("websocket opened");
+var ws = null;
+function startConnection(streamId) {
+    ws = new WebSocket("ws://localhost:8080/receiver/" + streamId);
+    ws.onopen = (e) => {
+        // I DON'T THINK I NEED TO SEND ANY MESSAGE TO THE BACKEND HERE
+        // setInterval(() => {
+        //     if (srcbuf.updating) return;
+        //     else ws.send("ready");
+        // }, 1000);
+        console.log("websocket opened");
+    }
+    ws.onmessage = (e) => {
+        console.log("received data from server");
+        if ((msgparity % 2) == 0) {
+            msgparity = (msgparity + 1)
+            console.log("this should be a facecam message");
+            e.data.arrayBuffer().then((buff) => {
+                mutex.runExclusive(() => {
+                    facecam_q.push(buff);
+                })
+            })
+            if (msgparity >= 4) {
+                pushToSrcBufs();
+            }
+            return;
+        } else {
+            msgparity = (msgparity + 1);
+            console.log("this should be a canvas message");
+            console.log(typeof (e.data));
+            e.data.arrayBuffer().then((buff) => {
+                mutex.runExclusive(() => {
+                    canvas_q.push(buff);
+                })
+            })
+            if (msgparity >= 4) {
+                pushToSrcBufs();
+            }
+            return;
+        }
+    }
 }
-
 var facecam_q = [];
 var canvas_q = [];
 var msgparity = 0;
 
 function pushToSrcBufs() {
+    if (srcbuf === null || canvas_srcbuf === null) return;
     if (srcbuf.updating || canvas_srcbuf.updating) return;
-    let cq = canvas_q.shift();
-    let fq = facecam_q.shift();
-    try {
-        srcbuf.appendBuffer(fq);
-    } catch (e) {
-        console.log("error appending facecam buffer: ", e);
-    }
 
-    try {
-        canvas_srcbuf.appendBuffer(cq);
-    } catch (e) {
-        console.log("error appending canvas buffer: ", e);
-    }
-}
-
-
-ws.onmessage = (e) => {
-    if (srcbuf === null) return;
-    if (canvas_srcbuf === null) return;
-    ++counter;
-    console.log("received data from server");
-    if (msgparity == 0) {
-        msgparity = (msgparity + 1) % 2;
-        console.log("this should be a facecam message");
-        e.data.arrayBuffer().then((buff) => {
-            facecam_q.push(buff);
-        })
-        pushToSrcBufs();
-        return;
-    } else {
-        msgparity = (msgparity + 1) % 2;
-        console.log("this should be a canvas message");
-        console.log(typeof (e.data));
-        e.data.arrayBuffer().then((buff) => {
-            canvas_q.push(buff);
-        })
-        pushToSrcBufs();
-        return;
-    }
-}
-
-let canvasBuffer = [];
-async function drawer(ocanvas) {
-    const ctx = ocanvas.getContext("2d");
-    ctx.lineJoin = "round"
-    ctx.lineCap = "round"
-    console.log(ocanvas.height + " " + ocanvas.width);
-
-    // Add these to ensure we have a visible stroke
-    ctx.strokeStyle = "black"; // Set a default color
-    ctx.lineWidth = 2; // Set a default width
-    ctx.fillStyle = "white"
-    ctx.fillRect(0, 0, ocanvas.width, ocanvas.height);
-
-
-    let drawing = false;
-    const ptrdown = ({ x, y }) => {
-        drawing = true
-        ctx.beginPath(x, y)
-        ctx.moveto(x, y);
-    }
-
-    const ptrmove = ({ x, y }) => {
-        if (!drawing) return;
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        // drawPoints();
-    }
-
-    const ptrup = ({ x, y }) => {
-        drawing = false;
-    }
-
-    const ptrlv = ({ x, y }) => {
-        drawing = false;
-    }
-
-
-    // let drawing = false;
-    const f = () => {
-        if (canvasBuffer.length <= 0) return;
-        let cpy = canvasBuffer.shift();
-
-        console.log("Complete cpy object:", JSON.stringify(cpy));
-        console.log(ocanvas.height + " " + ocanvas.width);
-
-        // Debug the incoming style values
-        console.log("Style object:", cpy.style);
-
-        const colorStr = cpy.style.slice(1);
-        const color = colorStr.startsWith('#') ? colorStr : '#' + colorStr;
-
-        ctx.lineWidth = parseFloat(cpy.style[0]);
-        ctx.strokeStyle = color;
-
-        const g = () => {
-            if (cpy.type == "ptrDown") {
-                ptrdown(cpy.coord)
-            } else if (cpy.type == "ptrUp") {
-                ptrup(cpy.coord)
-            } else if (cpy.type == "ptrLeave") {
-                ptrlv(cpy.coord)
-            } else if (cpy.type == "ptrMove") {
-                ptrmove(cpy.coord);
-            }
+    mutex.runExclusive(() => {
+        if (facecam_q.length < 1 || canvas_q.length < 1) return;
+        let cq = canvas_q.shift();
+        let fq = facecam_q.shift();
+        try {
+            srcbuf.appendBuffer(fq);
+        } catch (e) {
+            console.log("error appending facecam buffer: ", e);
         }
-
-        // const g = () => {   
-        //     if(cpy.type == "beginPath") {
-        //         drawing = true
-        //         ctx.beginPath();
-        //         ctx.moveTo(cpy.coord.x, cpy.coord.y);
-        //     } else if(cpy.type == "lineTo") {
-        //         if(!drawing) return
-        //         ctx.lineTo(cpy.coord.x, cpy.coord.y);
-        //         ctx.stroke(); 
-        //     } else if(cpy.type == "endPath") {
-        //         drawing = false;
-        //         return;
-        //     }
-        // }
-
-        g();
-        // setTimeout(g, 5);
-        // setTimeout(g, cpy.deltaTime);
-    }
-    setInterval(f, 1);
+        try {
+            canvas_srcbuf.appendBuffer(cq);
+        } catch (e) {
+            console.log("error appending canvas buffer: ", e);
+        }
+    })
 }
+
+
+

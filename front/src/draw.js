@@ -1,12 +1,15 @@
+var cnv = null;
+var setIntervalId = null;
 self.onmessage = (e) => {
     if (e.data.signal === "init") {
         let mydata = e.data.data;
         console.log("draw: received data and init signal");
-        init(mydata);
+        cnv = mydata
+        init();
     }
 }
 
-function init(cnv) {
+function init() {
     const ctx = cnv.getContext("2d");
     ctx.willReadFrequently = true;
     console.log(ctx);
@@ -27,6 +30,15 @@ function init(cnv) {
             ptrup(msg.data.data);
         } else if (msg.data.signal === "ptrlv") {
             ptrlv(msg.data.data);
+        } else if(msg.data.signal === "start_recording") {
+            console.log("draw: start recording");
+            setIntervalId = setInterval(() => {
+                const vframe = new VideoFrame(cnv, { timestamp: performance.now() });
+                self.postMessage({ signal: "imgData", data: vframe }, [vframe]);
+            }, 1000 / 20);
+        } else if(msg.data.signal === "stop_recording") {
+            console.log("draw: stop recording");        
+            clearInterval(setIntervalId);
         }
     }
 
@@ -52,24 +64,15 @@ function init(cnv) {
         if (!drawing) return;
         ctx.lineTo(x, y);
         ctx.stroke();
-        // drawPoints();
     }
 
     const ptrup = ({ x, y }) => {
         drawing = false;
-        // console.log(q);
     }
 
     const ptrlv = ({ x, y }) => {
         drawing = false;
-        // console.log(q);
     }
 
-    // const sliceSize = 1200*1000;
-    // let timestamp = 0;
-    setInterval(() => {
-        const vframe = new VideoFrame(cnv, { timestamp: performance.now() });
-        self.postMessage({ signal: "imgData", data: vframe }, [vframe]);
-        // timestamp += sliceSize;
-    }, 1000 / 20);
+    self.postMessage({signal: "canvas_ready"});
 }
