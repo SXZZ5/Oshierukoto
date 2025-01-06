@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
+	// "strconv"
 	"sync"
 
 	// "strconv"
@@ -78,7 +78,7 @@ func Dispatcher(pub *Publisher, trigger <-chan bool, ctx context.Context) {
 		defer (*pub).M.Unlock()
 		flen := len((*pub).facecam_q)
 		clen := len((*pub).canvas_q)
-		conditions := flen >= 3 && clen >= 3
+		conditions := flen >= 2 && clen >= 2
 		if !conditions {
 			return
 		}
@@ -91,8 +91,7 @@ func Dispatcher(pub *Publisher, trigger <-chan bool, ctx context.Context) {
 		facecam_copy := (*pub).facecam_q[0]
 		canvas_copy := (*pub).canvas_q[0]
 
-		(*pub).facecam_q = (*pub).facecam_q[1:]
-		(*pub).canvas_q = (*pub).canvas_q[1:]
+
 
 		if facecam_copy.id != canvas_copy.id {
 			panic("facecam and canvas packets are not the same")
@@ -109,6 +108,9 @@ func Dispatcher(pub *Publisher, trigger <-chan bool, ctx context.Context) {
 				(*pub).subscribers[i] <- canvas_copy.data
 			}
 		}
+
+		(*pub).facecam_q = (*pub).facecam_q[1:]
+		(*pub).canvas_q = (*pub).canvas_q[1:]	
 
 		revdel := []int{}
 		for i := len(todel) - 1; i >= 0; i-- {
@@ -198,13 +200,13 @@ func main() {
 				continue
 			}
 			if counter == 0 {
-				str := "./assets/firstpacket.mp4"
-				file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
-				if err != nil {
-					fmt.Println("err opening file:", err)
-				}
-				file.Write(message)
-				file.Close()
+				// str := "./assets/firstpacket.mp4"
+				// file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
+				// if err != nil {
+				// 	fmt.Println("err opening file:", err)
+				// }
+				// file.Write(message)
+				// file.Close()
 				Superimportant[pubName] = message
 				counter = 1
 				continue
@@ -214,20 +216,20 @@ func main() {
 			copy(combo, Superimportant[pubName])
 			combo = append(combo, message...)
 			ptr := Publishers[pubName]
-			(*ptr).facecam_id = (*ptr).facecam_id + 1
 			(*ptr).QMutex.Lock()
+			(*ptr).facecam_id = (*ptr).facecam_id + 1
 			(*ptr).facecam_q = append((*ptr).facecam_q, FacecamPacket{id: (*ptr).facecam_id, data: combo})
 			(*ptr).QMutex.Unlock()
 
 			trigger <- true
 
-			str := "./assets/invid" + strconv.Itoa((*ptr).facecam_id) + ".mp4"
-			file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
-			if err != nil {
-				fmt.Println("err opening dumping network packet to file:", err)
-			}
-			file.Write(combo)
-			file.Close()
+			// str := "./assets/invid"  + ".mp4"
+			// file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
+			// if err != nil {
+			// 	fmt.Println("err opening dumping network packet to file:", err)
+			// }
+			// file.Write(combo)
+			// file.Close()
 
 			fmt.Println(messageType)
 		}
@@ -273,18 +275,18 @@ func main() {
 			}
 
 			fmt.Println("one canvas fmp4 segment done")
-			(*ptr).canvas_id = (*ptr).canvas_id + 1
 			(*ptr).QMutex.Lock()
+			(*ptr).canvas_id = (*ptr).canvas_id + 1
 			(*ptr).canvas_q = append((*ptr).canvas_q, CanvasPacket{id: (*ptr).canvas_id, data: *fmp4})
 			(*ptr).QMutex.Unlock()
 
-			str := "./assets/outvid" + strconv.Itoa((*ptr).canvas_id) + ".mp4"
-			file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE, 0777)
-			if err != nil {
-				fmt.Println("err opening dumping network packet to file:", err)
-			}
-			file.Write(*fmp4)
-			file.Close()
+			// str := "./assets/canvid"  + ".mp4"
+			// file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
+			// if err != nil {
+			// 	fmt.Println("err opening dumping network packet to file:", err)
+			// }
+			// file.Write(*fmp4)
+			// file.Close()
 		}
 	})
 

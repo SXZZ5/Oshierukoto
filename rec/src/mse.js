@@ -67,7 +67,7 @@ function startConnection(streamId) {
                     facecam_q.push(buff);
                 })
             })
-            if (msgparity > 4) {
+            if (msgparity >= 4) {
                 pushToSrcBufs();
             }
             return;
@@ -80,7 +80,7 @@ function startConnection(streamId) {
                     canvas_q.push(buff);
                 })
             })
-            if (msgparity > 4) {
+            if (msgparity >= 4) {
                 pushToSrcBufs();
             }
             return;
