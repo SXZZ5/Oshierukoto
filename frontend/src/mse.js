@@ -48,7 +48,7 @@ canvas_source.addEventListener("sourceopen", (e) => {
 
 var ws = null;
 function startConnection(streamId) {
-    ws = new WebSocket("ws://51.20.119.77:8080/receiver/" + streamId);
+    ws = new WebSocket("wss://51.20.119.77:8080/receiver/" + streamId);
     ws.onopen = (e) => {
         // I DON'T THINK I NEED TO SEND ANY MESSAGE TO THE BACKEND HERE
         // setInterval(() => {

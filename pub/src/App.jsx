@@ -1,4 +1,4 @@
-// import { useRef } from "react";
+// import {motion} from 'motion/react'
 import { useEffect } from "react";
 var connworker = null;
 
@@ -26,7 +26,11 @@ export default function App() {
         <div style={{ height: "100vh", width: "100vw" }}>
             <canvas id="cnv" style={{ height: "100vh", width: "100vw" }}></canvas>
         </div>
-        <video id="vid" autoPlay muted></video>
+        <div style={{ backgroundColor: 'red'}}>
+        {/* <motion.div whileHover={{scale: 1.1}} whileTap={{scale: 0.9}}> */}
+            <video id="vid" autoPlay muted></video>
+        {/* </motion.div> */}
+        </div>
         <button id="btn">Go Live</button>
     </div>
 }
@@ -106,7 +110,7 @@ async function start_recording(stream) {
     })
     console.log("recorder created");
     console.log(recorder);
-    recorder.addEventListener("stop", (e) => {
+    recorder.addEventListener("stop", () => {
         recorder.start(3000);
     })
     // recorder.start(3000);           //moved this to the callback when bg.js tells that connections are ready.
@@ -136,7 +140,14 @@ async function drawer() {
                 recording = true;
                 recorder.start(3000);
             }
+        } else if(e.data.signal === "imgData") {
+            const vframe = e.data.data;
+            // console.log("vframe_tstmp: " + vframe.timestamp);
+            // console.log("vframe_duration: " + vframe.duration);
+            encoder.encode(vframe, { keyFrame: true });
+            vframe.close();
         }
+    }
 
     cnv.onpointerdown = (e) => {
         let coord = { x: e.offsetX, y: e.offsetY };
@@ -179,16 +190,4 @@ async function drawer() {
         bitrate: 500_000,
     };
     encoder.configure(config);
-
-    worker.onmessage = (e) => {
-       if (e.data.signal === "imgData") {
-            const vframe = e.data.data;
-            // console.log("vframe_tstmp: " + vframe.timestamp);
-            // console.log("vframe_duration: " + vframe.duration);
-            encoder.encode(vframe, { keyFrame: true });
-            vframe.close();
-        } 
-    }
-    
-    }
 }
