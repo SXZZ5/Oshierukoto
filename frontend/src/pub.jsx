@@ -5,7 +5,7 @@ import { useCanvasStateStore } from "./stores";
 import pencil from "./assets/pencil.png";
 import eraser from "./assets/erase.png";
 import webcamDisconnected from "./assets/webcam-disconnected.png";
-import Card from "./ui/card";
+import Card from "./card";
 
 
 var connworker = null;

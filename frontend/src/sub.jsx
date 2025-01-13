@@ -54,6 +54,9 @@ const PopoverContainerStyle= {
     backgroundColor: 'rgba(255, 255, 255, 0.7)', // Semi-transparent background
     zIndex: 1000,
     border: "none",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
 }
 
 const FaceCamVidStyle = {
