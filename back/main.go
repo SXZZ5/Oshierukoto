@@ -19,11 +19,12 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  4096,
-	WriteBufferSize: 4096,
+	ReadBufferSize:  1000_000,
+	WriteBufferSize: 1000_000,
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
+	EnableCompression: true,
 }
 
 type CanvasPacket struct {
@@ -37,12 +38,13 @@ type FacecamPacket struct {
 }
 
 type Publisher struct {
-	name        string
-	canvas_id   int
-	facecam_id  int
-	canvas_q    []CanvasPacket
-	facecam_q   []FacecamPacket
-	subscribers []chan<- []byte
+	name       string
+	canvas_id  int
+	facecam_id int
+	canvas_q   []CanvasPacket
+	facecam_q  []FacecamPacket
+	// subscribers []chan<- []byte
+	subscribers []chan<- *websocket.PreparedMessage
 	subdone     []<-chan bool
 	streamEnd   context.Context
 	M           sync.Mutex
@@ -56,13 +58,14 @@ func ConstructPublisher(pubName string, ctx context.Context) *Publisher {
 	publisher.facecam_id = 0
 	publisher.canvas_q = make([]CanvasPacket, 0)
 	publisher.facecam_q = make([]FacecamPacket, 0)
-	publisher.subscribers = []chan<- []byte{}
+	// publisher.subscribers = []chan<- []byte{}
+	publisher.subscribers = []chan<- *websocket.PreparedMessage{}
 	publisher.subdone = []<-chan bool{}
 	publisher.streamEnd = ctx
 	return &publisher
 }
 
-func (p *Publisher) Subscribe(data chan<- []byte, done <-chan bool) context.Context {
+func (p *Publisher) Subscribe(data chan<- *websocket.PreparedMessage, done <-chan bool) context.Context {
 	(*p).M.Lock()
 	(*p).subscribers = append((*p).subscribers, data)
 	(*p).subdone = append((*p).subdone, done)
@@ -96,17 +99,35 @@ func Dispatcher(pub *Publisher, trigger <-chan bool, ctx context.Context) {
 			panic("facecam and canvas packets are not the same")
 		}
 
+		facecam_pmsg, err := websocket.NewPreparedMessage(websocket.BinaryMessage, facecam_copy.data)
+		if err != nil {
+			panic(err)
+		}
+		canvas_pmsg, err := websocket.NewPreparedMessage(websocket.BinaryMessage, canvas_copy.data)
+		if err != nil {
+			panic(err)
+		}
+
 		todel := []int{}
+
+		var wg sync.WaitGroup
+		var sendhelper = func(i int) {
+			defer wg.Done()
+			(*pub).subscribers[i] <- facecam_pmsg
+			(*pub).subscribers[i] <- canvas_pmsg
+			fmt.Println("sent to subscriber ", i)
+		}
 
 		for i := 0; i < len((*pub).subscribers); i++ {
 			select {
 			case <-(*pub).subdone[i]:
 				todel = append(todel, i)
 			default:
-				(*pub).subscribers[i] <- facecam_copy.data
-				(*pub).subscribers[i] <- canvas_copy.data
+				wg.Add(1)
+				go sendhelper(i)
 			}
 		}
+		wg.Wait()
 
 		(*pub).facecam_q = (*pub).facecam_q[1:]
 		(*pub).canvas_q = (*pub).canvas_q[1:]
@@ -302,7 +323,8 @@ func main() {
 			c.String(http.StatusBadRequest, "publisher not found")
 			return
 		}
-		data := make(chan []byte, 20)
+		// data := make(chan []byte, 20)
+		data := make(chan *websocket.PreparedMessage, 20)
 		done := make(chan bool, 20)
 		ctx := (*ptr).Subscribe(data, done)
 		ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -317,7 +339,8 @@ func main() {
 		for {
 			select {
 			case received := <-data:
-				ws.WriteMessage(websocket.BinaryMessage, received)
+				ws.WritePreparedMessage(received)
+				// ws.WriteMessage(websocket.BinaryMessage, received)
 			case <-ctx.Done():
 				return
 			}
