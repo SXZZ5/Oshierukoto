@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+
 	// "strconv"
 	"sync"
 
@@ -91,8 +92,6 @@ func Dispatcher(pub *Publisher, trigger <-chan bool, ctx context.Context) {
 		facecam_copy := (*pub).facecam_q[0]
 		canvas_copy := (*pub).canvas_q[0]
 
-
-
 		if facecam_copy.id != canvas_copy.id {
 			panic("facecam and canvas packets are not the same")
 		}
@@ -110,7 +109,7 @@ func Dispatcher(pub *Publisher, trigger <-chan bool, ctx context.Context) {
 		}
 
 		(*pub).facecam_q = (*pub).facecam_q[1:]
-		(*pub).canvas_q = (*pub).canvas_q[1:]	
+		(*pub).canvas_q = (*pub).canvas_q[1:]
 
 		revdel := []int{}
 		for i := len(todel) - 1; i >= 0; i-- {
@@ -171,6 +170,12 @@ func main() {
 
 	Publishers := map[string]*Publisher{}
 	Superimportant := map[string][]byte{}
+
+	app.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
+	})
 
 	app.GET("/publisher/:name", func(c *gin.Context) {
 		pubName := c.Param("name")
@@ -318,5 +323,6 @@ func main() {
 			}
 		}
 	})
+	// app.RunTLS(":443", "path_to_cert.pem", "path_to_key.pem")
 	app.Run(":8080")
 }

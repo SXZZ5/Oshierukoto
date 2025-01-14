@@ -19,8 +19,10 @@ onmessage = (e) => {
 
 var declaredOpen = false;
 function startConnection(streamId) {
-    let ws = new WebSocket("wss://51.20.119.77:8080/publisher/" + streamId);
-    let ws2 = new WebSocket("wss://51.20.119.77:8080/publisher/" + streamId + "/canvas");
+    let ws = new WebSocket("wss://oshierukoto-backend.sxzzfive.site/publisher/" + streamId);
+    let ws2 = new WebSocket("wss://oshierukoto-backend.sxzzfive.site/publisher/" + streamId + "/canvas");
+    // let ws = new WebSocket("wss://51.20.119.77:8080/publisher/" + streamId);
+    // let ws2 = new WebSocket("wss://51.20.119.77:8080/publisher/" + streamId + "/canvas");
     // let ws = new WebSocket("ws://localhost:8080/publisher/" + streamId);
     // let ws2 = new WebSocket("ws://localhost:8080/publisher/" + streamId + "/canvas");
     ws.onopen = () => {
