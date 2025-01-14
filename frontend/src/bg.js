@@ -39,7 +39,6 @@ function startConnection(streamId) {
     }
     conn = ws;
     canvas_conn = ws2;
-    
 }
 
 function sendData(blob) {
