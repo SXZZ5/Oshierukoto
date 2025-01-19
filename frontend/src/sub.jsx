@@ -42,13 +42,6 @@ function WatcherInitialisations() {
     </>
 }
 
-function validateStreamId(streamId) {
-    //call backend to check if the streamId is valid.
-    return true;
-}
-
-
-
 const PopoverContainerStyle= {
     position: 'fixed',
     backgroundColor: 'rgba(255, 255, 255, 0.7)', // Semi-transparent background
@@ -65,8 +58,10 @@ const FaceCamVidStyle = {
     right: 0,
     padding: 0,
     margin: 0,
-    height: "200px",
-    width: "332px",
+    // height: "200px",
+    // width: "332px",
+    height: "150px",
+    widht: "auto",
     border: "1px solid black",
     boxShadow: "0 0 5px rgba(0, 0, 0, 0.5)",
     borderRadius: "15px",
@@ -81,6 +76,7 @@ const MOREFUCKINGcss = `
 function Watchers() {
     useEffect(() => {
         launch_worker();
+        return kill_worker;
     })
     return <div>
         <style>{MOREFUCKINGcss}</style>
@@ -89,8 +85,8 @@ function Watchers() {
                 <div className="justify-content-center jimu-primary-loading"></div>
             </div>
         </div>
-        <video id="cnv" autoPlay></video>
-        <video id="vid" autoPlay style={FaceCamVidStyle} playsInline></video>
+        <video id="cnv" autoPlay preload="auto"></video>
+        <video id="vid" autoPlay style={FaceCamVidStyle} playsInline preload="auto"></video>
         {/* <button id="btn" onClick={() => {console.log("btn clicked"); launch_worker()}}>Watch.</button> */}
     </div>
 }
@@ -98,13 +94,18 @@ function Watchers() {
 function sk_showPopover() {
     const playing = useSubsStateStore.getState().playing;
     let ppv = document.getElementById("loading");
+    if(ppv == null) return;
     if (playing && ppv.matches(":popover-open")) {
         ppv.hidePopover();
     } else if (!playing && !ppv.matches(":popover-open")) {
         ppv.showPopover();
     }
 }
-
+var myworker = null;
+function kill_worker() {
+    myworker.terminate();  
+    myworker = null;
+}
 function launch_worker() {
     console.log("launch_worker called");
     const { streamId, setPlaying } = useSubsStateStore.getState();
@@ -150,7 +151,7 @@ function launch_worker() {
     cnv.onended = () => {
         cnv.play();
     }
-    let myworker = new Worker(new URL("./mse.js", import.meta.url), { type: "module" });
+    myworker = new Worker(new URL("./mse.js", import.meta.url), { type: "module" });
     myworker.postMessage({ signal: "init", data: streamId });
 
     myworker.onmessage = (e) => {

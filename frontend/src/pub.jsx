@@ -8,7 +8,6 @@ import webcamDisconnected from "./assets/webcam-disconnected.png";
 import Card from "./card";
 
 
-var connworker = null;
 
 const audioconf = {
     channelCount: 1,
@@ -20,8 +19,8 @@ const audioconf = {
 }
 
 const videoconf = {
-    width: 332,
-    height: 200,
+    height: 150,
+    width: 150*1.6,
     framerate: 20,
 }
 
@@ -59,8 +58,10 @@ const FaceCamVidStyle = {
     right: 0,
     padding: 0,
     margin: 0,
-    height: "200px",
-    width: "332px",
+    // height: "200px",
+    // width: "332px",
+    height: "150px",
+    width: "auto",
     border: "1px solid black",
     boxShadow: "0 0 5px rgba(0, 0, 0, 0.5)",
     borderRadius: "15px",
@@ -71,6 +72,7 @@ function StreamComponent() {
     useEffect(() => {
         document.getElementById("dg").showModal();
         initialise();
+        return cleanupWork;
     }, [])
     return <div>
         <canvas id="cnv" style={{ height: "100vh", width: "100vw" }}></canvas>
@@ -80,15 +82,28 @@ function StreamComponent() {
     </div>
 }
 
+function cleanupWork() {
+    stream.getTracks().forEach(track => track.stop());
+    recorder.stop();
+    connworker.terminate();
+    worker.terminate();
+    connworker = null;
+    worker = null;
+    recorder = null;
+    stream = null;
+    return;
+}
+
 function initialise() {
     drawer();
     navigator.mediaDevices.getUserMedia({ video: videoconf, audio: audioconf })
         .then((got_stream) => {
             let vid = document.getElementById("vid");
-            vid.srcObject = got_stream.clone();
+            stream = got_stream;
+            vid.srcObject = got_stream;
             let dg = document.getElementById("dg");
             dg.onclick = () => {
-                start_recording(got_stream);
+                start_recording();
                 dg.close();
             }
         })
@@ -107,8 +122,10 @@ var canvas_ready = false;
 var connection_ready = false;
 var recording = false;
 var recorder = null;
+var stream = null;
+var connworker = null;
 
-async function start_recording(stream) {
+async function start_recording() {
     const streamId = getStreamId();
     console.log("inside start_recording");
     connworker = new Worker(new URL("bg.js", import.meta.url))
@@ -123,7 +140,7 @@ async function start_recording(stream) {
                 console.log("recording start time: " + performance.now());
                 worker.postMessage({ signal: "start_recording" });
                 recording = true;
-                recorder.start(3000);
+                recorder.start(400);
             }
         }
     }
@@ -158,9 +175,9 @@ async function start_recording(stream) {
     console.log("recorder created");
     console.log(recorder);
     recorder.addEventListener("stop", () => {
-        recorder.start(3000);
+        recorder.start(2000);
     })
-    // recorder.start(3000);           //moved this to the callback when bg.js tells that connections are ready.
+    // recorder.start(3000);           //moved this to the callbacks when bg.js tells that connections are ready.
 }
 
 var collection = new Array(2);
@@ -185,7 +202,7 @@ async function drawer() {
                 console.log("recording start time: " + performance.now());
                 worker.postMessage({ signal: "start_recording" });
                 recording = true;
-                recorder.start(3000);
+                recorder.start(400);
             }
         } else if (e.data.signal === "imgData") {
             const vframe = e.data.data;
@@ -354,6 +371,7 @@ function Colors() {
     </div>
 }
 
+// eslint-disable-next-line react/prop-types
 function C1 ({ color1, color2 }) {
     const setPencilColor = useCanvasStateStore((state) => state.setPencilColor);
     const style = {

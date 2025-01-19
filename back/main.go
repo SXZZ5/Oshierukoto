@@ -22,7 +22,7 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1000_000,
 	WriteBufferSize: 1000_000,
 	CheckOrigin: func(r *http.Request) bool {
-		return true
+		return true 
 	},
 	EnableCompression: true,
 }
@@ -82,7 +82,7 @@ func Dispatcher(pub *Publisher, trigger <-chan bool, ctx context.Context) {
 		defer (*pub).M.Unlock()
 		flen := len((*pub).facecam_q)
 		clen := len((*pub).canvas_q)
-		conditions := flen >= 2 && clen >= 2
+		conditions := flen >= 1 && clen >= 1
 		if !conditions {
 			return
 		}
@@ -186,8 +186,46 @@ func CanvastoMP4(pubName string, canvas_data *[]byte) *[]byte {
 	return &fileContents
 }
 
+func go_CanvastoMP4(pubptr *Publisher, canvas_data *[]byte) {
+	pubName := (*pubptr).name
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error getting current directory:", err)
+		return 
+	}
+	path := filepath.Join(cwd, "assets")
+	path = filepath.Join(path, "canvas_temp_"+pubName)
+	fmt.Println("path: ", path)
+
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0777)
+	if err != nil {
+		fmt.Println("err opening dumping network packet to file:", err)
+	}
+	file.Write(*canvas_data)
+	file.Close()
+
+	vidpath := filepath.Join(cwd, "assets")
+	vidpath = filepath.Join(vidpath, "canvas_out_"+pubName+".mp4")
+	cmd := exec.Command("ffmpeg", "-y", "-framerate", "20", "-i", path, "-c", "copy",
+		"-movflags", "frag_keyframe+empty_moov+default_base_moof", vidpath)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fileContents, err := os.ReadFile(vidpath)
+	if err != nil {
+		fmt.Println("err reading file: ", err)
+	}
+
+	(*pubptr).QMutex.Lock()
+	(*pubptr).canvas_id = (*pubptr).canvas_id + 1
+	(*pubptr).canvas_q = append((*pubptr).canvas_q, CanvasPacket{id: (*pubptr).canvas_id, data: fileContents})
+	(*pubptr).QMutex.Unlock()
+}
+
 func main() {
 	app := gin.Default()
+	app.SetTrustedProxies(nil)
 
 	Publishers := map[string]*Publisher{}
 	Superimportant := map[string][]byte{}
@@ -216,6 +254,7 @@ func main() {
 		}
 		defer cancel()
 		defer ws.Close()
+		defer delete(Publishers, pubName)
 		counter := 0
 		for {
 			messageType, message, err := ws.ReadMessage()
@@ -295,16 +334,18 @@ func main() {
 				counter++
 			}
 
-			fmp4 := CanvastoMP4(name, &message)
-			if fmp4 == nil {
-				continue
-			}
+			go go_CanvastoMP4(ptr, &message, )
 
-			fmt.Println("one canvas fmp4 segment done")
-			(*ptr).QMutex.Lock()
-			(*ptr).canvas_id = (*ptr).canvas_id + 1
-			(*ptr).canvas_q = append((*ptr).canvas_q, CanvasPacket{id: (*ptr).canvas_id, data: *fmp4})
-			(*ptr).QMutex.Unlock()
+			// fmp4 := CanvastoMP4(name, &message)
+			// if fmp4 == nil {
+			// 	continue
+			// }
+
+			// fmt.Println("one canvas fmp4 segment done")
+			// (*ptr).QMutex.Lock()
+			// (*ptr).canvas_id = (*ptr).canvas_id + 1
+			// (*ptr).canvas_q = append((*ptr).canvas_q, CanvasPacket{id: (*ptr).canvas_id, data: *fmp4})
+			// (*ptr).QMutex.Unlock()
 
 			// str := "./assets/canvid"  + ".mp4"
 			// file, err := os.OpenFile(str, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
@@ -346,6 +387,40 @@ func main() {
 			}
 		}
 	})
+
+	app.GET("/api/checkpub/:name", func(ctx *gin.Context) {
+		name := ctx.Param("name")
+		val, ok := Publishers[name]
+		fmt.Println("checkpub called with: ", name)
+		fmt.Println("result of checkpub: ", ok)
+		ctx.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		if ok  {
+			fmt.Println("val: ", val);
+			ctx.JSON(http.StatusOK, gin.H{
+				"available": "no",
+			})
+		} else {
+			ctx.JSON(http.StatusOK, gin.H{
+				"available": "yes",
+			})
+		}
+	})
+
+	app.GET("/api/pubexists/:name", func(ctx *gin.Context) {
+		name := ctx.Param("name")
+		_, ok := Publishers[name]
+		ctx.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		if ok {
+			ctx.JSON(http.StatusOK, gin.H{
+				"exists": "yes",
+			})
+		} else {
+			ctx.JSON(http.StatusOK, gin.H{
+				"exists": "no",
+			})
+		}
+	})
+
 	// app.RunTLS(":443", "path_to_cert.pem", "path_to_key.pem")
 	app.Run(":8080")
 }

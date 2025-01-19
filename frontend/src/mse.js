@@ -66,11 +66,10 @@ function startConnection(streamId) {
             e.data.arrayBuffer().then((buff) => {
                 mutex.runExclusive(() => {
                     facecam_q.push(buff);
+                    console.log("added smth to facecam_q");
+                    pushToSrcBufs();
                 })
             })
-            if (msgparity >= 4) {
-                pushToSrcBufs();
-            }
             return;
         } else {
             msgparity = (msgparity + 1);
@@ -79,11 +78,10 @@ function startConnection(streamId) {
             e.data.arrayBuffer().then((buff) => {
                 mutex.runExclusive(() => {
                     canvas_q.push(buff);
+                    console.log("added smth to canvas_q");
+                    pushToSrcBufs();
                 })
             })
-            if (msgparity >= 4) {
-                pushToSrcBufs();
-            }
             return;
         }
     }
@@ -93,20 +91,31 @@ var canvas_q = [];
 var msgparity = 0;
 
 function pushToSrcBufs() {
-    if (srcbuf === null || canvas_srcbuf === null) return;
-    if (srcbuf.updating || canvas_srcbuf.updating) return;
-
+    console.log("pushtosrcbufs called");
+    if (srcbuf === null || canvas_srcbuf === null) {
+        console.log("early returning from pustosrcbufs because srcbuf is null")
+        return;
+    }
+    if (srcbuf.updating || canvas_srcbuf.updating) {
+        console.log("early returning from pustosrcbufs because srcbuf.updating is true")
+        return;
+    }
     mutex.runExclusive(() => {
-        if (facecam_q.length < 1 || canvas_q.length < 1) return;
+        if (facecam_q.length < 1 || canvas_q.length < 1) {
+            console.log("early returning from pustosrcbufs because facecam_q.length < 1 || canvas_q.length < 1")
+            return;
+        }
         let cq = canvas_q.shift();
         let fq = facecam_q.shift();
         try {
             srcbuf.appendBuffer(fq);
+            console.log("appending facecam buffer");
         } catch (e) {
-            console.log("error appending facecam buffer: ", e);
+            console.log("error appending facecam mse buffer: ", e);
         }
         try {
             canvas_srcbuf.appendBuffer(cq);
+            console.log("appending canvas mse buffer");
         } catch (e) {
             console.log("error appending canvas buffer: ", e);
         }
