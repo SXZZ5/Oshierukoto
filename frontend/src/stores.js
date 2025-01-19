@@ -6,6 +6,7 @@ const usePubStateStore = create((set) => {
         streamIdFinalised: false,
         streamId: null,
         changeStreamId: (streamId) => { set(() => {
+            console.log("change pubstreamID called with: " + streamId);
             return {
             streamId: streamId,
         }})},
