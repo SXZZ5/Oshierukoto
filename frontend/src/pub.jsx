@@ -140,7 +140,7 @@ async function start_recording() {
                 console.log("recording start time: " + performance.now());
                 worker.postMessage({ signal: "start_recording" });
                 recording = true;
-                recorder.start(400);
+                recorder.start(3500);
             }
         }
     }
@@ -175,7 +175,7 @@ async function start_recording() {
     console.log("recorder created");
     console.log(recorder);
     recorder.addEventListener("stop", () => {
-        recorder.start(2000);
+        recorder.start(3500);
     })
     // recorder.start(3000);           //moved this to the callbacks when bg.js tells that connections are ready.
 }
@@ -202,7 +202,7 @@ async function drawer() {
                 console.log("recording start time: " + performance.now());
                 worker.postMessage({ signal: "start_recording" });
                 recording = true;
-                recorder.start(400);
+                recorder.start(3500);
             }
         } else if (e.data.signal === "imgData") {
             const vframe = e.data.data;
