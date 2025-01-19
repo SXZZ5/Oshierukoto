@@ -42,8 +42,8 @@ export default function Hero() {
         console.log(pub_state.streamId);
         console.log(str);
         console.log(pub_state.streamId);
-        // fetch("oshierukoto-backend.sxzzfive.site/api/checkpub/" + pub_state.streamId, reqinit)
-        fetch("http://localhost:8080/api/checkpub/" + str)
+        fetch("https://oshierukoto-backend.sxzzfive.site/api/checkpub/" + str)
+        // fetch("http://localhost:8080/api/checkpub/" + str)
         .then(response => response.json())
         .then(data => {
             console.log(data);
@@ -63,8 +63,8 @@ export default function Hero() {
             document.getElementById("doesnt_exist").showPopover();
             return;
         }
-        // fetch("https://www.oshierukoto-backend.sxzzfive.site/api/pubexists/" + str)
-        fetch("http://localhost:8080/api/pubexists/" + str)
+        fetch("https://oshierukoto-backend.sxzzfive.site/api/pubexists/" + str)
+        // fetch("http://localhost:8080/api/pubexists/" + str)
         .then(response => response.json())
         .then(data => {
             console.log(data);

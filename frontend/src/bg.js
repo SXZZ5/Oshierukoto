@@ -19,10 +19,10 @@ onmessage = (e) => {
 
 var declaredOpen = false;
 function startConnection(streamId) {
-    // let ws = new WebSocket("wss://oshierukoto-backend.sxzzfive.site/publisher/" + streamId);
-    // let ws2 = new WebSocket("wss://oshierukoto-backend.sxzzfive.site/publisher/" + streamId + "/canvas");
-    let ws = new WebSocket("ws://localhost:8080/publisher/" + streamId);
-    let ws2 = new WebSocket("ws://localhost:8080/publisher/" + streamId + "/canvas");
+    let ws = new WebSocket("wss://oshierukoto-backend.sxzzfive.site/publisher/" + streamId);
+    let ws2 = new WebSocket("wss://oshierukoto-backend.sxzzfive.site/publisher/" + streamId + "/canvas");
+    // let ws = new WebSocket("ws://localhost:8080/publisher/" + streamId);
+    // let ws2 = new WebSocket("ws://localhost:8080/publisher/" + streamId + "/canvas");
     ws.onopen = () => {
         console.log("bg: connected to ws")
         if(ws2.readyState === WebSocket.OPEN && !declaredOpen) {
