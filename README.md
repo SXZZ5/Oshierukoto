@@ -1,6 +1,6 @@
 # Oshierukoto
 
-**Oshierukoto** is a lightweight browser-based live streaming platform designed for real-time collaborative sessions. It allows a presenter to stream both a **facecam** and a **whiteboard** feed to multiple viewers using an efficient, scalable architecture powered by **WebSockets** and **Go**.
+**Oshierukoto** is a lightweight browser-based live streaming app designed for real-time live sessions. It allows a presenter to stream both a **facecam** and a **whiteboard** feed to multiple viewers using an efficient, scalable architecture powered by **WebSockets** and **Go**.
 
 ## Features
 
